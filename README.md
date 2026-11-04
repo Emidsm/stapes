@@ -5,9 +5,9 @@ A deterministic simulation environment for a 6-DOF surgical robot arm, in C++20.
 Named after the stapes, the smallest bone in the human body, which sits beside the round
 window of the cochlea.
 
-> **Work in progress.** The foundation is in place: simulated time, reproducible
-> randomness, and forward and inverse kinematics. Dynamics, actuator and sensor models,
-> the safety monitor and fault injection come next.
+> **Work in progress.** Working so far: simulated time, reproducible randomness, kinematics,
+> rigid-body dynamics, actuator and sensor models, and closed-loop joint control. The
+> trajectory constraint, safety monitor and fault injection come next.
 
 The anatomy and tissue models are illustrative, and the reference arm is not the
 geometry of any real robot. This is an engineering project, not a medical device.
@@ -51,8 +51,12 @@ python3 tools/mutation_check.py
 | `core/base` | Simulated clock, random generators, state hash |
 | `core/math` | Rigid transforms and rotation error |
 | `core/kinematics` | Arm model, forward kinematics, Jacobian, inverse kinematics |
-| `tests` | Unit and property tests, determinism checks |
-| `benchmarks` | Timing of the kinematics functions |
+| `core/dynamics` | Mass properties, inverse and forward dynamics, mass matrix |
+| `core/hardware` | The interface between control software and any robot, real or simulated |
+| `core/plant` | The simulated robot: motors, gearboxes, encoders, force sensor |
+| `core/control` | PID and joint control with gravity and gearbox compensation |
+| `tests` | Unit, property and closed-loop tests, determinism checks |
+| `benchmarks` | Timing of kinematics, dynamics and a closed-loop tick |
 | `tools` | Traceability, bug injection, reference values |
 | `docs/adr` | Architecture decision records |
 | `docs/requirements` | Software requirements |

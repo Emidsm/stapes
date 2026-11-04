@@ -142,12 +142,14 @@ jobs:
       - name: Build
         run: |
           cmake --preset release
-          cmake --build --preset release --target bench_kinematics
+          cmake --build --preset release --target bench_kinematics bench_simulation
       - name: Run benchmarks
         run: |
           build/release/benchmarks/bench_kinematics \
-            --benchmark_out=build/release/benchmarks.json --benchmark_out_format=json
+            --benchmark_out=build/release/bench_kinematics.json --benchmark_out_format=json
+          build/release/benchmarks/bench_simulation \
+            --benchmark_out=build/release/bench_simulation.json --benchmark_out_format=json
       - uses: actions/upload-artifact@v4
         with:
           name: benchmarks
-          path: build/release/benchmarks.json
+          path: build/release/bench_*.json

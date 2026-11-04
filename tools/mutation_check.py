@@ -30,6 +30,14 @@ IK = "core/kinematics/src/inverse_kinematics.cpp"
 RANDOM = "core/base/src/random.cpp"
 CLOCK = "core/base/src/sim_clock.cpp"
 ROTATION = "core/math/src/rotation.cpp"
+MODEL_DYN = "core/dynamics/src/dynamic_model.cpp"
+DYN = "core/dynamics/src/rigid_body_dynamics.cpp"
+ACT = "core/plant/src/actuator.cpp"
+ENC = "core/plant/src/encoder.cpp"
+FORCE = "core/plant/src/force_sensor.cpp"
+ARM = "core/plant/src/simulated_arm.cpp"
+PID = "core/control/src/pid_controller.cpp"
+JOINT = "core/control/src/joint_controller.cpp"
 STREAM_MIX = "seed_mixer.next() ^ std::rotl(stream_mixer.next(), 32)"
 
 MUTATIONS = [
@@ -84,6 +92,64 @@ MUTATIONS = [
     Mutation("multistart restarts on invalid input", IK,
              "best.status != IkStatus::invalid_input", "true"),
     Mutation("multistart under-reports iterations", IK, "best.iterations = total_iterations;", ""),
+    Mutation("impossible inertia accepted", MODEL_DYN, "moments(0) + moments(1) >= moments(2)",
+             "true"),
+    Mutation("gravity sign reversed", DYN, "accel = -model.gravity();",
+             "accel = model.gravity();"),
+    Mutation("Coriolis term dropped", DYN, "carried_omega.cross(axis * qd(row))",
+             "Eigen::Vector3d::Zero()"),
+    Mutation("gyroscopic term dropped", DYN, " + omega.cross(link.inertia_kgm2 * omega)", ""),
+    Mutation("centre-of-mass moment dropped", DYN, "links[i].com_m.cross(forces[i]) + ", ""),
+    Mutation("composite inertia not accumulated", DYN,
+             "composite[i - 1] += transforms[i].transpose() * composite[i] * transforms[i];", ""),
+    Mutation("spatial transform sign wrong", DYN, "-parent_to_link * skew(offset)",
+             "parent_to_link * skew(offset)"),
+    Mutation("potential energy sign wrong", DYN, "energy -= model.links()",
+             "energy += model.links()"),
+    Mutation("friction not smoothed across zero", ACT,
+             "std::tanh(velocity / params.smoothing_velocity_rad_s)", "1.0"),
+    Mutation("Stribeck peak does not decay", ACT, "std::exp(-normalised * normalised)", "1.0"),
+    Mutation("viscous friction dropped", ACT, "(params.viscous_nm_s * velocity)", "0.0"),
+    Mutation("backlash ignored on the positive side", ACT,
+             "deflection > params.backlash_half_width_rad", "deflection > 0.0"),
+    Mutation("gear teeth can pull, positive side", ACT, "std::max(push, 0.0)", "push"),
+    Mutation("gear teeth can pull, negative side", ACT, "std::min(push, 0.0)", "push"),
+    Mutation("NaN torque command passed through", ACT, "std::isnan(command) ? 0.0 : ", ""),
+    Mutation("encoder truncates rather than rounds", ENC, "std::round(noisy", "std::floor(noisy"),
+    Mutation("encoder ignores noise", ENC, "params_.noise_stddev_rad * rng_.gaussian()", "0.0"),
+    Mutation("force drift grows with time, not its root", FORCE, "drift * root_elapsed",
+             "drift * elapsed_s"),
+    Mutation("force scale error ignored", FORCE, "(1.0 + params_.scale_error) * true_wrench",
+             "true_wrench"),
+    Mutation("torque channels use force noise", FORCE, "channel < 3", "channel < 6"),
+    Mutation("encoders read the link", ARM, "encoders_[i].sample(state_.motor_angle(row))",
+             "encoders_[i].sample(state_.q(row))"),
+    Mutation("all encoders share one noise stream", ARM, "kEncoderStreamBase + Index",
+             "kEncoderStreamBase + (Index * 0)"),
+    Mutation("force reported in the world frame", ARM,
+             "world_to_tool * external_wrench_.head<3>()", "external_wrench_.head<3>()"),
+    Mutation("external wrench does not act on the arm", ARM, "gear + environment", "gear"),
+    Mutation("motor friction not applied", ARM, " - friction - gear(row)", " - gear(row)"),
+    Mutation("link positions never integrated", ARM, "state_.q += state_.qd * step_s;", ""),
+    Mutation("PID error sign reversed", PID, "setpoint - measurement", "measurement - setpoint"),
+    Mutation("PID anti-windup disabled", PID, "if (!pushing_past_limit) {", "if (true) {"),
+    Mutation("PID cannot unwind while saturated", PID, "unclamped > limit && error > 0.0",
+             "unclamped > limit"),
+    Mutation("PID output not clamped", PID, "std::clamp(without_integral + integral_, -limit, limit)",
+             "without_integral + integral_"),
+    Mutation("PID accepts NaN feedforward", PID, " || std::isnan(feedforward)", ""),
+    Mutation("PID reset keeps the filtered rate", PID, "filtered_rate_ = 0.0;", ""),
+    Mutation("PID reset keeps the last measurement", PID, "has_last_measurement_ = false;", ""),
+    Mutation("controller ignores gearbox deflection", JOINT,
+             "(load(row) / gearboxes_[i].stiffness_nm_per_rad)", "0.0"),
+    Mutation("controller ignores backlash", JOINT, "std::tanh(load(row) / kBacklashBlendTorque)",
+             "0.0"),
+    Mutation("controller drops gravity compensation", JOINT,
+             "pids_[i].update(motor(row), measured(row), gravity(row))",
+             "pids_[i].update(motor(row), measured(row))"),
+    Mutation("controller aims at the link, not the motor", JOINT,
+             "pids_[i].update(motor(row), measured(row), gravity(row))",
+             "pids_[i].update(target(row), measured(row), gravity(row))"),
 ]
 
 TEST_TIMEOUT_S = 300

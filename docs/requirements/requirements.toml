@@ -90,3 +90,143 @@ code = ["core/kinematics/src/inverse_kinematics.cpp"]
 id = "SRS-RT-001"
 statement = "Random draws, forward kinematics, the Jacobian and inverse kinematics shall perform no heap allocation."
 code = ["core/kinematics/src/inverse_kinematics.cpp", "core/kinematics/src/forward_kinematics.cpp", "core/base/src/random.cpp"]
+
+[[requirement]]
+id = "SRS-DYN-001"
+statement = "The dynamic model shall reject masses, centres of mass, inertias and gravity that are non-finite or physically impossible."
+code = ["core/dynamics/src/dynamic_model.cpp"]
+
+[[requirement]]
+id = "SRS-DYN-002"
+statement = "Inverse dynamics shall match hand-calculated gravity and centripetal loads, and an independent virtual-work calculation of gravity torque."
+code = ["core/dynamics/src/rigid_body_dynamics.cpp"]
+
+[[requirement]]
+id = "SRS-DYN-003"
+statement = "The mass matrix shall match a hand-calculated inertia and inverse dynamics column by column, and be symmetric and positive definite."
+code = ["core/dynamics/src/rigid_body_dynamics.cpp"]
+
+[[requirement]]
+id = "SRS-DYN-004"
+statement = "Forward dynamics shall invert inverse dynamics."
+code = ["core/dynamics/src/rigid_body_dynamics.cpp"]
+
+[[requirement]]
+id = "SRS-DYN-005"
+statement = "In unforced motion, energy drift shall vanish at the integrator's order as the step shrinks, and potential energy shall match a hand calculation."
+code = ["core/dynamics/src/rigid_body_dynamics.cpp"]
+
+[[requirement]]
+id = "SRS-ACT-001"
+statement = "Motor friction shall combine Coulomb, Stribeck and viscous terms, always opposing motion."
+code = ["core/plant/src/actuator.cpp"]
+
+[[requirement]]
+id = "SRS-ACT-002"
+statement = "The gearbox shall transmit no torque inside its backlash, push in proportion to penetration beyond it, and never pull."
+code = ["core/plant/src/actuator.cpp"]
+
+[[requirement]]
+id = "SRS-ACT-003"
+statement = "Motor torque shall be clamped to its limit, and a NaN command shall produce no torque."
+code = ["core/plant/src/actuator.cpp"]
+
+[[requirement]]
+id = "SRS-SEN-001"
+statement = "Encoders shall add Gaussian noise and quantise to whole counts, and reject invalid parameters."
+code = ["core/plant/src/encoder.cpp"]
+
+[[requirement]]
+id = "SRS-SEN-002"
+statement = "The force sensor shall apply scale error, noise, and a random-walk bias whose spread grows with the square root of time."
+code = ["core/plant/src/force_sensor.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-001"
+statement = "The simulated arm shall fall under gravity with no command, and stay at rest with neither gravity nor command."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-002"
+statement = "The motor shall move through the backlash before the link moves, and encoders shall read the motor, not the link."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-003"
+statement = "The simulated arm shall apply each joint's torque limit, and treat a NaN command as no torque on that joint only."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-004"
+statement = "An external wrench shall act on the links through the Jacobian transpose and be reported by the force sensor in the tool frame."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-005"
+statement = "The physics shall stay finite and bounded under repeated full-torque reversals."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-006"
+statement = "The simulated arm shall advance its clock by one control period per tick, and reject an invalid timing or initial configuration."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-001"
+statement = "The PID controller shall compute proportional, integral, derivative and feedforward terms correctly."
+code = ["core/control/src/pid_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-002"
+statement = "A setpoint step shall cause no derivative kick, and the derivative shall be low-pass filtered."
+code = ["core/control/src/pid_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-003"
+statement = "Controller output shall stay within each joint's limit, and the integral shall not wind up while saturated, though it may unwind."
+code = ["core/control/src/pid_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-004"
+statement = "A NaN input shall command zero torque and shall not corrupt the controller's state."
+code = ["core/control/src/pid_controller.cpp", "core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-005"
+statement = "Controllers shall reject invalid parameters, and reset shall clear all history."
+code = ["core/control/src/pid_controller.cpp", "core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-006"
+statement = "Control code shall depend only on the hardware interface, and run unchanged against any implementation of it."
+code = ["core/hardware/include/stapes/hardware/robot_interface.hpp", "core/control/CMakeLists.txt"]
+
+[[requirement]]
+id = "SRS-CTL-007"
+statement = "The controller shall offset the motor target by the predicted gearbox deflection and backlash, keeping the tip within 50 um where uncompensated control exceeds 200 um."
+code = ["core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-008"
+statement = "Under closed-loop control the reference arm shall hold a pose against gravity with a true tip error below 50 um."
+code = ["core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-009"
+statement = "After a 0.05 rad step on all joints, the true tip error shall settle within 0.2 mm in under 2 s, with overshoot below 20 % of the step."
+code = ["core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-010"
+statement = "The loop shall hold within 0.2 mm with a 5 % mass error and 10 % stiffness error in the controller's model, and stay stable under a steady 5 N external force."
+code = ["core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-DET-006"
+statement = "Closed-loop runs including all sensors and physics shall be bit-identical for a seed, and differ between seeds."
+code = ["core/plant/src/simulated_arm.cpp", "tests/support/closed_loop_workload.hpp"]
+
+[[requirement]]
+id = "SRS-RT-002"
+statement = "Dynamics and a complete closed-loop tick shall perform no heap allocation."
+code = ["core/dynamics/src/rigid_body_dynamics.cpp", "core/plant/src/simulated_arm.cpp", "core/control/src/joint_controller.cpp"]

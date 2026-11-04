@@ -10,8 +10,11 @@
 
 #include "requirement.hpp"
 #include "stapes/base/random.hpp"
+#include "stapes/control/joint_controller.hpp"
+#include "stapes/dynamics/rigid_body_dynamics.hpp"
 #include "stapes/kinematics/forward_kinematics.hpp"
 #include "stapes/kinematics/inverse_kinematics.hpp"
+#include "stapes/plant/simulated_arm.hpp"
 
 namespace {
 
@@ -133,6 +136,40 @@ TEST(NoAllocation, InverseKinematicsDoesNotAllocate) {
       [&] { iterations = solve_ik(model, target, reference_home()).iterations; });
   EXPECT_EQ(counted, 0);
   EXPECT_GT(iterations, 0);
+}
+
+TEST(NoAllocation, DynamicsDoNotAllocate) {
+  stapes::test::verifies("SRS-RT-002");
+  const stapes::dynamics::DynamicModel model = stapes::dynamics::DynamicModel::reference();
+  const JointVector q = reference_home();
+  const JointVector qd = JointVector::Constant(0.5);
+  double sink = 0.0;
+  const long counted = allocations_during([&] {
+    sink += stapes::dynamics::inverse_dynamics(model, q, qd, qd)(0);
+    sink += stapes::dynamics::mass_matrix(model, q)(0, 0);
+    sink += stapes::dynamics::forward_dynamics(model, q, qd, qd)(0);
+    sink += stapes::dynamics::kinetic_energy(model, q, qd);
+    sink += stapes::dynamics::potential_energy(model, q);
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_TRUE(std::isfinite(sink));
+}
+
+TEST(NoAllocation, AClosedLoopTickDoesNotAllocate) {
+  stapes::test::verifies("SRS-RT-002");
+  const stapes::plant::SimulatedArmConfig config = stapes::plant::SimulatedArmConfig::reference(1);
+  stapes::plant::SimulatedArm arm(config);
+  stapes::control::JointController controller(config.model, stapes::control::reference_gains(),
+                                              stapes::control::reference_gearbox_estimates(), 1e-3);
+  const JointVector target = reference_home();
+  const long counted = allocations_during([&] {
+    for (int i = 0; i < 100; ++i) {
+      arm.command_torques(controller.update(target, arm.read_sensors().joint_positions_rad));
+      arm.tick();
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_EQ(arm.clock().ticks(), 100);
 }
 
 TEST(NoAllocation, MultistartInverseKinematicsDoesNotAllocate) {
