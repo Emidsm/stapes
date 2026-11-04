@@ -1,0 +1,50 @@
+# Everything is on by default. Each exclusion below is a decision, with its reason:
+#
+# avoid-magic-numbers, magic-numbers  physical constants and tolerances are named where
+#                                     they matter, and these checks flag every literal
+# avoid-unchecked-container-access,
+# pro-bounds-constant-array-index     indices come from loops over the same fixed array
+# avoid-do-while                      the rejection sampler's natural form
+# easily-swappable-parameters         flags every (lower, upper) pair of doubles
+# include-cleaner                     does not understand Eigen's umbrella headers
+# use-designated-initializers,
+# trailing-comma                      hurts the readability of small tables
+# pass-by-value                       Eigen and std::array values gain nothing from a move
+# avoid-pragma-once                   supported by every compiler this project targets
+# use-trailing-return-type            style preference
+# identifier-length                   q, x, y are the standard names in this domain
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cert-*,
+  -cert-dcl58-cpp,
+  -cert-err58-cpp,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  misc-*,
+  -misc-include-cleaner,
+  -misc-non-private-member-variables-in-classes,
+  -misc-use-anonymous-namespace,
+  modernize-*,
+  -modernize-pass-by-value,
+  -modernize-use-designated-initializers,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  portability-*,
+  -portability-avoid-pragma-once,
+  readability-*,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-trailing-comma,
+  -readability-uppercase-literal-suffix
+HeaderFilterRegex: '(core|tests|benchmarks)/.*\.hpp$'
+WarningsAsErrors: '*'

@@ -1,0 +1,5 @@
+# `for (auto _ : state)` is Google Benchmark's required loop form.
+InheritParentConfig: true
+Checks: >
+  -misc-const-correctness,
+  -clang-analyzer-deadcode.DeadStores

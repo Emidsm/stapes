@@ -1,0 +1,110 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 28, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "STAPES_WERROR": "ON" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "sanitize",
+      "displayName": "Debug with ASan and UBSan",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1",
+        "STAPES_SANITIZE": "ON",
+        "STAPES_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Debug with coverage (GCC)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1",
+        "STAPES_COVERAGE": "ON",
+        "STAPES_BUILD_BENCHMARKS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "sanitize", "configurePreset": "sanitize" },
+    { "name": "coverage", "configurePreset": "coverage" }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    { "name": "debug", "inherits": "base", "configurePreset": "debug" },
+    { "name": "release", "inherits": "base", "configurePreset": "release" },
+    {
+      "name": "sanitize",
+      "inherits": "base",
+      "configurePreset": "sanitize",
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:strict_string_checks=1:check_initialization_order=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    },
+    { "name": "coverage", "inherits": "base", "configurePreset": "coverage" }
+  ],
+  "workflowPresets": [
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" },
+        { "type": "test", "name": "debug" }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" },
+        { "type": "test", "name": "release" }
+      ]
+    },
+    {
+      "name": "sanitize",
+      "steps": [
+        { "type": "configure", "name": "sanitize" },
+        { "type": "build", "name": "sanitize" },
+        { "type": "test", "name": "sanitize" }
+      ]
+    },
+    {
+      "name": "coverage",
+      "steps": [
+        { "type": "configure", "name": "coverage" },
+        { "type": "build", "name": "coverage" },
+        { "type": "test", "name": "coverage" }
+      ]
+    }
+  ]
+}

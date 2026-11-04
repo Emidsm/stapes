@@ -1,0 +1,92 @@
+# Software requirements. Each test names the IDs it verifies, and
+# tools/traceability.py fails if any requirement here has no passing test.
+
+[[requirement]]
+id = "SRS-SIM-001"
+statement = "Simulated time shall be derived from an integer tick count, with no accumulated drift over one simulated hour."
+code = ["core/base/include/stapes/base/sim_clock.hpp"]
+
+[[requirement]]
+id = "SRS-SIM-002"
+statement = "The simulation clock shall reject a non-positive time step."
+code = ["core/base/src/sim_clock.cpp"]
+
+[[requirement]]
+id = "SRS-DET-001"
+statement = "The random generators shall reproduce the published algorithms' output exactly, checked against an independent implementation."
+code = ["core/base/src/random.cpp", "tools/reference_vectors.py"]
+
+[[requirement]]
+id = "SRS-DET-002"
+statement = "The same seed shall produce a bit-identical result, and a different seed a different one."
+code = ["core/base/src/random.cpp", "tests/support/kinematics_workload.hpp"]
+
+[[requirement]]
+id = "SRS-DET-003"
+statement = "Random streams shall be independent: drawing from one shall not change another."
+code = ["core/base/include/stapes/base/random.hpp"]
+
+[[requirement]]
+id = "SRS-DET-004"
+statement = "Uniform samples shall stay in their half-open range, and uniform and Gaussian samples shall match their theoretical moments."
+code = ["core/base/src/random.cpp"]
+
+[[requirement]]
+id = "SRS-DET-005"
+statement = "The state hash shall match FNV-1a and detect a one-bit change in any value or a change in order."
+code = ["core/base/include/stapes/base/state_hash.hpp"]
+
+[[requirement]]
+id = "SRS-KIN-001"
+statement = "Forward kinematics shall match hand-calculated tool poses and always produce a rigid transform."
+code = ["core/kinematics/src/forward_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-002"
+statement = "The geometric Jacobian shall match central finite differences of forward kinematics."
+code = ["core/kinematics/src/forward_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-003"
+statement = "From a seed within 0.2 rad per joint of a solution, or from home to a solution within 0.5 rad per joint, inverse kinematics shall reach the pose within 1 um and 1 urad, as confirmed by forward kinematics."
+code = ["core/kinematics/src/inverse_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-004"
+statement = "Inverse kinematics shall never return a configuration outside the joint limits, for any target or seed."
+code = ["core/kinematics/src/inverse_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-005"
+statement = "Inverse kinematics shall never report success falsely: unreachable targets, exhausted iterations and non-finite inputs shall each be reported as such, with the true remaining error."
+code = ["core/kinematics/src/inverse_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-006"
+statement = "The arm model shall reject invalid geometry, and joint-limit checks shall treat NaN as out of limits."
+code = ["core/kinematics/src/arm_model.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-007"
+statement = "Rotation error shall be correct across the full range of angles, including very small angles and a half turn."
+code = ["core/math/src/rotation.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-008"
+statement = "The manipulability measure shall vanish at the wrist singularity and be positive away from singularities."
+code = ["core/kinematics/src/forward_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-009"
+statement = "Starting from home with up to 32 deterministic restarts, inverse kinematics shall reach at least 99 % of random reachable poses, and shall stop at the first solution."
+code = ["core/kinematics/src/inverse_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-KIN-010"
+statement = "Inverse kinematics shall bound the change to any joint per iteration, and shall stop early when further iterations cannot make meaningful progress."
+code = ["core/kinematics/src/inverse_kinematics.cpp"]
+
+[[requirement]]
+id = "SRS-RT-001"
+statement = "Random draws, forward kinematics, the Jacobian and inverse kinematics shall perform no heap allocation."
+code = ["core/kinematics/src/inverse_kinematics.cpp", "core/kinematics/src/forward_kinematics.cpp", "core/base/src/random.cpp"]

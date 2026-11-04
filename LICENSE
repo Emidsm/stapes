@@ -1,0 +1,14 @@
+Copyright (c) 2026 Emidsm. All rights reserved.
+
+This source code is published so that it can be read and evaluated. You may read it,
+and build and run it to evaluate it, including as part of a technical or hiring review.
+
+No other permission is granted. Without prior written permission from the copyright
+holder, you may not copy, modify, distribute, sublicense or sell this code, or use it in
+another project or product, except for the viewing and forking that the GitHub Terms of
+Service allow on GitHub itself.
+
+Third-party dependencies are downloaded at build time and remain under their own licenses.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IT IS NOT A MEDICAL DEVICE
+AND MUST NOT BE USED FOR CLINICAL PURPOSES.

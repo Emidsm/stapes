@@ -1,0 +1,4 @@
+# A test-wide fixture that throws at startup aborts the test run loudly, which is fine.
+InheritParentConfig: true
+Checks: >
+  -bugprone-throwing-static-initialization

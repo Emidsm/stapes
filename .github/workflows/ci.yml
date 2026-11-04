@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CLANG_FORMAT_VERSION: "23.1.3"
+  CLANG_TIDY_VERSION: "23.1.4"
+  GCOVR_VERSION: "8.6"
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Check formatting
+        run: |
+          find core tests benchmarks \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+            | xargs -0 uvx "clang-format==${CLANG_FORMAT_VERSION}" --dry-run --Werror
+
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { name: gcc, cxx: g++-14 }
+          - { name: clang, cxx: clang++-18 }
+        preset: [debug, release, sanitize]
+    name: test (${{ matrix.compiler.name }}, ${{ matrix.preset }})
+    env:
+      CXX: ${{ matrix.compiler.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14 clang-18
+      - name: Configure, build and test
+        run: cmake --workflow --preset ${{ matrix.preset }}
+      - name: Check traceability
+        if: matrix.preset == 'debug'
+        run: |
+          python3 tools/traceability.py \
+            --requirements docs/requirements/requirements.toml \
+            --results build/debug/test-results \
+            --output build/debug/traceability.md
+      - name: Upload traceability matrix
+        if: matrix.preset == 'debug' && matrix.compiler.name == 'gcc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: traceability-matrix
+          path: build/debug/traceability.md
+
+  determinism:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14 clang-18
+      - name: Build the probe with both compilers
+        run: |
+          CXX=g++-14 cmake --preset release -B build/gcc
+          CXX=clang++-18 cmake --preset release -B build/clang
+          cmake --build build/gcc --target determinism_probe
+          cmake --build build/clang --target determinism_probe
+      - name: Compare results
+        run: |
+          gcc_hash="$(build/gcc/tests/determinism_probe)"
+          clang_hash="$(build/clang/tests/determinism_probe)"
+          echo "GCC:   ${gcc_hash}" | tee -a "${GITHUB_STEP_SUMMARY}"
+          echo "Clang: ${clang_hash}" | tee -a "${GITHUB_STEP_SUMMARY}"
+          test "${gcc_hash}" = "${clang_hash}"
+
+  clang-tidy:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: clang++-18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build clang-18
+      - name: Configure and build
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug
+      - name: Run clang-tidy
+        run: |
+          find core tests benchmarks -name '*.cpp' -print0 \
+            | xargs -0 -n 1 -P 4 uvx "clang-tidy==${CLANG_TIDY_VERSION}" -p build/debug --quiet
+
+  coverage:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14
+      - name: Build and test with coverage
+        run: cmake --workflow --preset coverage
+      - name: Report coverage
+        run: |
+          uvx "gcovr==${GCOVR_VERSION}" --gcov-executable gcov-14 --root . --filter 'core/' \
+            --object-directory build/coverage build/coverage \
+            --exclude-throw-branches --exclude-unreachable-branches \
+            --print-summary --html-details build/coverage/coverage.html \
+            | tee -a "${GITHUB_STEP_SUMMARY}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build/coverage/coverage*.*
+
+  mutation:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14
+      - name: Fetch dependencies
+        run: cmake --preset debug
+      - name: Inject bugs and check that the tests catch them
+        run: python3 tools/mutation_check.py --deps build/debug/_deps | tee -a "${GITHUB_STEP_SUMMARY}"
+        shell: bash -o pipefail -e {0}
+
+  benchmark:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14
+      - name: Build
+        run: |
+          cmake --preset release
+          cmake --build --preset release --target bench_kinematics
+      - name: Run benchmarks
+        run: |
+          build/release/benchmarks/bench_kinematics \
+            --benchmark_out=build/release/benchmarks.json --benchmark_out_format=json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks
+          path: build/release/benchmarks.json

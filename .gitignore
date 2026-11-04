@@ -1,0 +1,9 @@
+/build/
+compile_commands.json
+__pycache__/
+*.pyc
+.venv/
+.cache/
+*.gcda
+*.gcno
+*.gcov
