@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "stapes/kinematics/arm_model.hpp"
 #include "stapes/math/wrench.hpp"
 
@@ -8,7 +10,8 @@ namespace stapes::hardware {
 /// One consistent set of sensor readings.
 struct SensorSample {
   kinematics::JointVector joint_positions_rad;
-  math::Wrench tool_wrench;  ///< In the tool frame.
+  math::Wrench tool_wrench;     ///< In the tool frame.
+  std::int64_t stamp_ticks{0};  ///< Control tick at which this was sampled.
 };
 
 /// Everything the control software may know about the robot.

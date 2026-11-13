@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "closed_loop_workload.hpp"
+#include "fault_scenarios.hpp"
 #include "kinematics_workload.hpp"
 #include "requirement.hpp"
 
@@ -23,6 +24,18 @@ TEST(Determinism, ClosedLoopRunsAreBitIdentical) {
   stapes::test::verifies("SRS-DET-006");
   EXPECT_EQ(stapes::test::closed_loop_workload_hash(42, 2000),
             stapes::test::closed_loop_workload_hash(42, 2000));
+}
+
+TEST(Determinism, RunsWithAFaultAndAStopAreBitIdentical) {
+  stapes::test::verifies("SRS-DET-007");
+  EXPECT_EQ(stapes::test::fault_workload_hash(42, 2000),
+            stapes::test::fault_workload_hash(42, 2000));
+}
+
+TEST(Determinism, ADifferentSeedChangesARunWithAFault) {
+  stapes::test::verifies("SRS-DET-007");
+  EXPECT_NE(stapes::test::fault_workload_hash(42, 2000),
+            stapes::test::fault_workload_hash(43, 2000));
 }
 
 TEST(Determinism, ADifferentSeedChangesTheClosedLoopRun) {

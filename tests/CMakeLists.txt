@@ -2,7 +2,7 @@ add_library(stapes_test_support INTERFACE)
 target_include_directories(stapes_test_support INTERFACE support)
 target_link_libraries(stapes_test_support INTERFACE stapes::base stapes::kinematics
                                                     stapes::dynamics stapes::plant stapes::control
-                                                     GTest::gtest stapes::options)
+                                                    stapes::sim GTest::gtest stapes::options)
 
 # Each binary writes its results as JSON, which tools/traceability.py reads to tie
 # every requirement to the tests that verify it.
@@ -30,10 +30,18 @@ stapes_add_test(test_determinism unit/determinism/test_same_seed.cpp)
 stapes_add_test(test_dynamics unit/dynamics/test_dynamic_model.cpp
                 unit/dynamics/test_rigid_body_dynamics.cpp)
 stapes_add_test(test_plant unit/plant/test_actuator.cpp unit/plant/test_encoder.cpp
-                unit/plant/test_force_sensor.cpp unit/plant/test_simulated_arm.cpp)
+                unit/plant/test_force_sensor.cpp unit/plant/test_optical_tracker.cpp
+                unit/plant/test_safety_channel.cpp unit/plant/test_simulated_arm.cpp)
 stapes_add_test(test_control unit/control/test_pid_controller.cpp
                 unit/control/test_joint_controller.cpp)
 stapes_add_test(test_closed_loop integration/test_closed_loop.cpp)
+
+stapes_add_test(test_task unit/task/test_keyhole.cpp)
+stapes_add_test(test_faults unit/faults/test_fault_injector.cpp)
+stapes_add_test(test_safety unit/safety/test_safety_monitor.cpp)
+target_compile_definitions(test_safety PRIVATE STAPES_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+stapes_add_test(test_keyhole integration/test_keyhole.cpp)
+stapes_add_test(test_fault_campaign integration/test_fault_campaign.cpp)
 
 # In-process tests cannot catch what changes between processes, such as reads of
 # uninitialised memory or a dependence on addresses. This runs a workload in two

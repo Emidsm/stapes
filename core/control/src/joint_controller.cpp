@@ -9,14 +9,13 @@
 namespace stapes::control {
 
 JointGains reference_gains() {
+  // Every joint gets the same 200 rad/s crossover: kd = 200 * rotor inertia, kp = 30 * kd and
+  // ki = 5 * kp. See ADR 0008 for the measurements behind these numbers.
   constexpr double kFilter = 0.002;
   return JointGains{
-      PidGains{2000.0, 10000.0, 100.0, 60.0, kFilter},
-      PidGains{2000.0, 10000.0, 100.0, 60.0, kFilter},
-      PidGains{900.0, 4500.0, 40.0, 30.0, kFilter},
-      PidGains{120.0, 600.0, 5.0, 8.0, kFilter},
-      PidGains{120.0, 600.0, 5.0, 8.0, kFilter},
-      PidGains{50.0, 250.0, 2.0, 4.0, kFilter},
+      PidGains{900.0, 4500.0, 30.0, 60.0, kFilter}, PidGains{900.0, 4500.0, 30.0, 60.0, kFilter},
+      PidGains{480.0, 2400.0, 16.0, 30.0, kFilter}, PidGains{120.0, 600.0, 4.0, 8.0, kFilter},
+      PidGains{120.0, 600.0, 4.0, 8.0, kFilter},    PidGains{60.0, 300.0, 2.0, 4.0, kFilter},
   };
 }
 

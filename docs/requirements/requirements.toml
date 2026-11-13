@@ -230,3 +230,233 @@ code = ["core/plant/src/simulated_arm.cpp", "tests/support/closed_loop_workload.
 id = "SRS-RT-002"
 statement = "Dynamics and a complete closed-loop tick shall perform no heap allocation."
 code = ["core/dynamics/src/rigid_body_dynamics.cpp", "core/plant/src/simulated_arm.cpp", "core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-CTL-011"
+statement = "The control loop shall remain stable, with the tip within 0.2 mm of the line, with 5 ticks of delay on readings and on commands."
+code = ["core/control/src/joint_controller.cpp"]
+
+[[requirement]]
+id = "SRS-DET-007"
+statement = "Runs that include a fault and a safety stop shall be bit-identical for a seed, and differ between seeds."
+code = ["core/sim/src/keyhole_simulation.cpp", "core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-RT-003"
+statement = "A complete simulation tick, including the fault injector and safety monitor, shall perform no heap allocation, before or after a stop."
+code = ["core/sim/src/keyhole_simulation.cpp", "core/faults/src/fault_injector.cpp", "core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SEN-006"
+statement = "An optical tracker shall report the tool pose with independent Gaussian position and orientation noise of the configured spread, always returning a valid rotation, and shall reject invalid noise."
+code = ["core/plant/src/optical_tracker.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-007"
+statement = "The arm shall start at rest with its gearboxes carrying gravity, so that holding the gravity torque moves no link by more than 2 urad."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-008"
+statement = "The safety channel shall read link encoders and an optical tracker independently of the control channel, with both channels stamped with the tick of sampling."
+code = ["core/hardware/include/stapes/hardware/safety_interface.hpp", "core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-ARM-009"
+statement = "Engaging the brakes shall remove motor torque, ignore later commands, stop each moving motor within 5 ticks when its load is within the rated brake torque, and slip otherwise; releasing them shall restore command."
+code = ["core/plant/src/simulated_arm.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-001"
+statement = "The keyhole constraint shall be measured as the distance from a fixed point to the infinite line through the tool tip along its axis."
+code = ["core/task/src/keyhole.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-002"
+statement = "A tool pose shall be constructible from a tip and an axis, or a tip and a fulcrum, turning from a reference by the smallest rotation so that no roll about the tool axis is added."
+code = ["core/task/src/keyhole.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-003"
+statement = "A straight tunnel shall provide poses along its line clamped to its ends, and the depth and radial distance of any point, and shall reject end points that do not define it."
+code = ["core/task/src/keyhole.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-004"
+statement = "A feed profile shall be continuous and monotonic, reach exactly the tunnel's length, respect the speed and acceleration limits, and reject non-positive parameters."
+code = ["core/task/src/keyhole.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-005"
+statement = "A plan shall be checked along its whole length before any motion, and a plan that cannot be reached shall be refused with the arm unmoved. A run shall start on the plan."
+code = ["core/task/src/keyhole.cpp", "core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-006"
+statement = "Drilling the reference tunnel with no fault, every joint moving, the true tip and tool axis shall stay within 0.2 mm of the plan and the final depth within 0.2 mm of the target, across seeds."
+code = ["core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-007"
+statement = "Under a thrust opposing the feed that builds to 2 N, the true tip shall stay within 0.2 mm of the line."
+code = ["core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-008"
+statement = "Under closed-loop control, with the tip moving around a circle at about 2 mm/s, the tool axis shall stay within 0.2 mm of a fixed fulcrum while tilting by more than 0.1 rad."
+code = ["core/task/src/keyhole.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-001"
+statement = "Before its start tick, or with no fault, the fault injector shall pass every reading and command through unchanged."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-002"
+statement = "A frozen motor encoder fault shall repeat that joint's last value before the fault, leaving other joints and the timestamp fresh."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-003"
+statement = "A frozen link encoder fault shall do the same on the safety channel only."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-004"
+statement = "A frozen tracker fault shall repeat the last tracked pose with a fresh timestamp."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-005"
+statement = "A stuck actuator fault shall hold that joint's last delivered torque and ignore new commands for it, leaving other joints under command."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-006"
+statement = "A comms delay fault shall deliver control readings, with their original timestamps, and commands late by the configured ticks in simulated time, without affecting the safety channel."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-FLT-007"
+statement = "Brake commands shall reach the robot directly under every fault."
+code = ["core/faults/include/stapes/faults/fault_injector.hpp"]
+
+[[requirement]]
+id = "SRS-FLT-008"
+statement = "The fault injector shall reject a joint or a delay out of range."
+code = ["core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-001"
+statement = "The monitor shall reject a configuration with a limit that is not positive and finite, a margin that is negative or not finite, a corridor that does not define a line, or a debounce below 1."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-002"
+statement = "The monitor shall start clear, and stay clear for as long as every check passes."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-003"
+statement = "NaN or infinity in any reading or in the target shall stop at once."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-004"
+statement = "A sample on either channel older than the allowed age, or stamped in the future, shall stop at once."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-005"
+statement = "A link encoder reading outside any joint's limits less the margin shall stop at once."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-006"
+statement = "A link speed, from consecutive link readings, above that joint's limit in either direction shall stop at once. The first check has no earlier reading and does not judge speed."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-007"
+statement = "A tool force magnitude above the limit for the debounce count of consecutive checks shall stop. Torque shall not count, and a clean check shall restart the count."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-008"
+statement = "After the debounce, the monitor shall stop if the tracked tip is farther than the radius from the planned line, the tool axis is farther than the radius from the entry, or the tip is past the target by more than the margin. Backing out along the axis shall be allowed."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-009"
+statement = "After the debounce, the monitor shall stop if the tracked tip differs from the tip computed from the link encoders by more than the limit."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-010"
+statement = "After the debounce, the monitor shall stop if any motor encoder differs from its link encoder by more than that joint's limit."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-011"
+statement = "After the debounce, the monitor shall stop if any link is farther from its target than that joint's limit."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-012"
+statement = "Each debounced check shall keep its own count, unaffected by the others."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-013"
+statement = "A stop shall be latched with its first cause, regardless of later input."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-014"
+statement = "A reset shall succeed only if the current input passes every check, and shall then forget all counts and the earlier reading. While not stopped, it shall change nothing."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-015"
+statement = "When several checks fail together, the cause reported shall be the first in the documented order."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-016"
+statement = "The monitor's checks shall not throw, and the safety module shall not depend on the controller or the plant."
+code = ["core/safety/include/stapes/safety/safety_monitor.hpp", "core/safety/CMakeLists.txt"]
+
+[[requirement]]
+id = "SRS-SAF-017"
+statement = "Every stop cause shall have a name for logs and reports."
+code = ["core/safety/src/reference_config.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-018"
+statement = "With no fault, the monitor shall not stop the reference drilling run, across seeds."
+code = ["core/safety/src/safety_monitor.cpp", "core/safety/src/reference_config.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-019"
+statement = "With a frozen sensor or stuck actuator on any joint, at different times and seeds, the true tip and tool axis shall stay within 0.5 mm of the plan, and at least three quarters of runs shall stop. A frozen tracker shall always stop."
+code = ["core/safety/src/safety_monitor.cpp", "core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-020"
+statement = "A communication delay beyond the allowed age shall stop in the tick it appears. A delay within it shall not stop, and the tip shall stay within 0.2 mm of the line."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-021"
+statement = "A force beyond what the loop can hold shall stop the robot with the true tip within 0.5 mm of the line."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-022"
+statement = "After a stop the motors shall carry no torque, each motor shall stop, and the true tip shall move less than 0.2 mm from where it stopped."
+code = ["core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-023"
+statement = "With the monitor's limits out of reach, the same faults shall take the tip beyond the limits above, which shows the faults are real and the monitor is what contains them."
+code = ["tests/integration/test_fault_campaign.cpp"]

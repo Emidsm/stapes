@@ -3,5 +3,5 @@ target_link_libraries(bench_kinematics PRIVATE stapes::kinematics benchmark::ben
                                                stapes::options)
 
 add_executable(bench_simulation bench_simulation.cpp)
-target_link_libraries(bench_simulation PRIVATE stapes::plant stapes::control benchmark::benchmark
+target_link_libraries(bench_simulation PRIVATE stapes::sim benchmark::benchmark
                                                stapes::options)

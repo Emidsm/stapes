@@ -35,7 +35,7 @@ class ScriptedRobot final : public stapes::hardware::RobotInterface {
 
  private:
   JointVector commanded_{JointVector::Zero()};
-  stapes::hardware::SensorSample sample_{JointVector::Zero(), stapes::math::Wrench::Zero()};
+  stapes::hardware::SensorSample sample_{JointVector::Zero(), stapes::math::Wrench::Zero(), 0};
 };
 
 TEST(JointController, RunsAgainstAnyImplementationOfTheHardwareInterface) {

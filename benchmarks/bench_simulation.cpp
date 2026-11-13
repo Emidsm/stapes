@@ -3,6 +3,7 @@
 #include "stapes/control/joint_controller.hpp"
 #include "stapes/dynamics/rigid_body_dynamics.hpp"
 #include "stapes/plant/simulated_arm.hpp"
+#include "stapes/sim/keyhole_simulation.hpp"
 
 namespace {
 
@@ -43,6 +44,16 @@ void BM_ClosedLoopTick(benchmark::State& state) {
   }
 }
 BENCHMARK(BM_ClosedLoopTick);
+
+// Everything in one control period: inverse kinematics, sensors on both channels, the safety
+// monitor, the controller and the physics.
+void BM_KeyholeSimulationTick(benchmark::State& state) {
+  stapes::sim::KeyholeSimulation sim(stapes::sim::KeyholeScenario::reference(1));
+  for (auto _ : state) {
+    sim.step();
+  }
+}
+BENCHMARK(BM_KeyholeSimulationTick);
 
 }  // namespace
 

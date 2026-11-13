@@ -15,6 +15,7 @@
 #include "stapes/kinematics/forward_kinematics.hpp"
 #include "stapes/kinematics/inverse_kinematics.hpp"
 #include "stapes/plant/simulated_arm.hpp"
+#include "stapes/sim/keyhole_simulation.hpp"
 
 namespace {
 
@@ -170,6 +171,33 @@ TEST(NoAllocation, AClosedLoopTickDoesNotAllocate) {
   });
   EXPECT_EQ(counted, 0);
   EXPECT_EQ(arm.clock().ticks(), 100);
+}
+
+TEST(NoAllocation, AFullSimulationTickWithAFaultAndAMonitorDoesNotAllocate) {
+  stapes::test::verifies("SRS-RT-003");
+  stapes::sim::KeyholeScenario scenario = stapes::sim::KeyholeScenario::reference(1);
+  scenario.fault = stapes::faults::Fault{stapes::faults::FaultKind::comms_delay, 10, 0, 1};
+  stapes::sim::KeyholeSimulation sim(scenario);
+  const long counted = allocations_during([&] {
+    for (int i = 0; i < 100; ++i) {
+      sim.step();
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_EQ(sim.ticks(), 100);
+}
+
+TEST(NoAllocation, ASimulationTickAfterAStopDoesNotAllocate) {
+  stapes::test::verifies("SRS-RT-003");
+  stapes::sim::KeyholeScenario scenario = stapes::sim::KeyholeScenario::reference(1);
+  scenario.fault = stapes::faults::Fault{stapes::faults::FaultKind::comms_delay, 0, 0, 100};
+  stapes::sim::KeyholeSimulation sim(scenario);
+  const long counted = allocations_during([&] {
+    for (int i = 0; i < 200; ++i) {
+      sim.step();
+    }
+  });
+  EXPECT_EQ(counted, 0);
 }
 
 TEST(NoAllocation, MultistartInverseKinematicsDoesNotAllocate) {
