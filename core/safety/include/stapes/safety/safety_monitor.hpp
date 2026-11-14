@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include <Eigen/Geometry>
@@ -91,6 +93,26 @@ class SafetyMonitor {
   [[nodiscard]] StopCause cause() const noexcept { return cause_; }
 
  private:
+  /// The checks that need `debounce_checks` consecutive failures, in priority order.
+  static constexpr std::size_t kDebouncedChecks = 5;
+  using Violations = std::array<bool, kDebouncedChecks>;
+
+  /// The first of `non_finite_input`, `stale_data` and `joint_limit` that `input` fails, or
+  /// `none`. These need no history.
+  [[nodiscard]] StopCause immediate_cause(const SafetyInput& input) const noexcept;
+  [[nodiscard]] bool too_fast(const kinematics::JointVector& links_rad) const noexcept;
+  /// Whether `input` fails each debounced check right now. Only valid on finite input.
+  [[nodiscard]] Violations debounced_violations(const SafetyInput& input) const noexcept;
+  [[nodiscard]] bool outside_corridor(const math::Pose& tool) const noexcept;
+
+  SafetyConfig config_;
+  Eigen::Vector3d corridor_direction_;  ///< Unit vector from the entry to the target.
+  double corridor_length_m_;
+  kinematics::JointVector max_link_step_rad_;  ///< Speed limit times the period.
+
+  std::array<int, kDebouncedChecks> violation_counts_{};
+  kinematics::JointVector previous_links_rad_{kinematics::JointVector::Zero()};
+  bool has_previous_links_{false};
   StopCause cause_{StopCause::none};
 };
 
