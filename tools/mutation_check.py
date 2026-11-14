@@ -43,6 +43,7 @@ TRACKER = "core/plant/src/optical_tracker.cpp"
 KEYHOLE = "core/task/src/keyhole.cpp"
 INJECTOR = "core/faults/src/fault_injector.cpp"
 SIM = "core/sim/src/keyhole_simulation.cpp"
+MONITOR = "core/safety/src/safety_monitor.cpp"
 STREAM_MIX = "seed_mixer.next() ^ std::rotl(stream_mixer.next(), 32)"
 
 MUTATIONS = [
@@ -223,6 +224,89 @@ MUTATIONS = [
     Mutation("delay buffer index wrong after wrap-around", INJECTOR,
              "static_cast<std::size_t>(tick) % kBufferSize",
              "static_cast<std::size_t>(tick) % (kBufferSize - 1)"),
+    Mutation("monitor accepts a zero limit", MONITOR, "std::isfinite(value) && value > 0.0",
+             "std::isfinite(value) && value >= 0.0"),
+    Mutation("monitor accepts a NaN limit", MONITOR, "std::isfinite(value) && value > 0.0",
+             "!(value <= 0.0)"),
+    Mutation("monitor accepts a zero per-joint limit", MONITOR, "(values.array() > 0.0).all()",
+             "true"),
+    Mutation("monitor accepts a corridor with no length", MONITOR,
+             "positive(corridor_length(corridor)) && ", ""),
+    Mutation("monitor accepts a zero sample age", MONITOR,
+             "config.max_sample_age_ticks >= 1 && ", ""),
+    Mutation("monitor accepts a zero debounce", MONITOR, " && config.debounce_checks >= 1", ""),
+    Mutation("a far-future stamp wraps round to a fresh one", MONITOR, """if (stamp > now) {
+    return true;
+  }""", ""),
+    Mutation("sample age limit off by one", MONITOR, "std::cmp_greater(age, max_age)",
+             "std::cmp_greater_equal(age, max_age)"),
+    Mutation("age of the control sample ignored", MONITOR, """ ||
+      stale(input.control.stamp_ticks, input.now_ticks, config_.max_sample_age_ticks)""", ""),
+    Mutation("age of the safety sample ignored", MONITOR,
+             """stale(input.safety.stamp_ticks, input.now_ticks, config_.max_sample_age_ticks) ||
+      """, ""),
+    Mutation("non-finite target accepted", MONITOR, " && input.target.allFinite()", ""),
+    Mutation("non-finite tracker pose accepted", MONITOR,
+             "input.safety.tracked_tool_pose.matrix().allFinite() &&", ""),
+    Mutation("non-finite control wrench accepted", MONITOR,
+             "input.control.tool_wrench.allFinite() && ", ""),
+    Mutation("joint margin ignored at the lower limit", MONITOR,
+             "joint.lower_rad + config_.joint_limit_margin_rad", "joint.lower_rad"),
+    Mutation("joint margin ignored at the upper limit", MONITOR,
+             "joint.upper_rad - config_.joint_limit_margin_rad", "joint.upper_rad"),
+    Mutation("velocity judged with no earlier reading", MONITOR,
+             "cause_ == StopCause::none && has_previous_links_ &&", "cause_ == StopCause::none &&"),
+    Mutation("velocity compares against the first reading", MONITOR,
+             """previous_links_rad_ = input.safety.link_positions_rad;
+  has_previous_links_ = true;""", """if (!has_previous_links_) {
+    previous_links_rad_ = input.safety.link_positions_rad;
+  }
+  has_previous_links_ = true;"""),
+    Mutation("velocity limit ignores the period", MONITOR,
+             "config.max_velocity_rad_s * config.period_s", "config.max_velocity_rad_s"),
+    Mutation("a clean check does not restart the debounce", MONITOR,
+             "violations[i] ? violation_counts_[i] + 1 : 0",
+             "violation_counts_[i] + (violations[i] ? 1 : 0)"),
+    Mutation("debounce lasts one check too long", MONITOR,
+             "violation_counts_[i] >= config_.debounce_checks",
+             "violation_counts_[i] > config_.debounce_checks"),
+    Mutation("lowest priority cause wins", MONITOR, """cause_ = kDebouncedCauses[i];
+      break;""", "cause_ = kDebouncedCauses[i];"),
+    Mutation("a stop is not latched", MONITOR, """if (stopped()) {
+    return cause_;
+  }
+
+  cause_ = immediate_cause(input);""", "cause_ = immediate_cause(input);"),
+    Mutation("force limit includes torque", MONITOR, "input.safety.tool_wrench.head<3>().norm()",
+             "input.safety.tool_wrench.norm()"),
+    Mutation("tracker compared with the motor encoders", MONITOR,
+             "kinematics::forward_kinematics(config_.arm, links)",
+             "kinematics::forward_kinematics(config_.arm, input.control.joint_positions_rad)"),
+    Mutation("tracking error read from the motor encoders", MONITOR,
+             "differs_by_more_than(links, input.target,",
+             "differs_by_more_than(input.control.joint_positions_rad, input.target,"),
+    Mutation("corridor ignores the tip's distance from the line", MONITOR,
+             "radial_m > config_.corridor.radius_m || ", ""),
+    Mutation("corridor ignores the shaft at the entry", MONITOR,
+             "shaft_at_entry_m > config_.corridor.radius_m ||", "false ||"),
+    Mutation("corridor has no depth limit", MONITOR,
+             "depth_m > corridor_length_m_ + config_.corridor.overshoot_margin_m", "false"),
+    Mutation("corridor ignores the overshoot margin", MONITOR,
+             "corridor_length_m_ + config_.corridor.overshoot_margin_m", "corridor_length_m_"),
+    Mutation("corridor limits depth in both directions", MONITOR,
+             "depth_m > corridor_length_m_", "std::abs(depth_m) > corridor_length_m_"),
+    Mutation("reset re-judges a monitor that is not stopped", MONITOR, """if (!stopped()) {
+    return true;
+  }""", ""),
+    Mutation("reset ignores the immediate conditions", MONITOR,
+             """if (immediate_cause(input) != StopCause::none) {
+    return false;
+  }""", ""),
+    Mutation("reset ignores the debounced conditions", MONITOR, """if (violated) {
+      return false;
+    }""", ""),
+    Mutation("reset keeps the debounce counts", MONITOR, "violation_counts_.fill(0);", ""),
+    Mutation("reset keeps the earlier reading", MONITOR, "has_previous_links_ = false;", ""),
     Mutation("controller keeps running after a stop", SIM, """    injector_.engage_brakes();
     stop_tick_ = arm_.clock().ticks();
   } else {
@@ -274,8 +358,11 @@ def main() -> int:
                         help="existing FetchContent directory, to avoid downloading again")
     parser.add_argument("--match", default="",
                         help="only run mutations whose name contains this text")
+    parser.add_argument("--file", default="",
+                        help="only run mutations in source files whose path contains this text")
     args = parser.parse_args()
-    mutations = [mutation for mutation in MUTATIONS if args.match in mutation.name]
+    mutations = [mutation for mutation in MUTATIONS
+                 if args.match in mutation.name and args.file in mutation.path]
 
     root = Path(__file__).resolve().parent.parent
     deps = args.deps.resolve()

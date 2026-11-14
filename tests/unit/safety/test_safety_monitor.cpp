@@ -2,6 +2,7 @@
 // behaviour from the header's contract.
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -225,6 +226,32 @@ TEST(SafetyMonitor, ASampleFromTheFutureIsNotTrusted) {
   }
 }
 
+TEST(SafetyMonitor, ExtremeStampsAreJudgedWithoutOverflow) {
+  // A corrupted stamp can be as far from `now` as the type allows. The age must not wrap round
+  // into a small number, and computing it must not overflow.
+  stapes::test::verifies("SRS-SAF-004");
+  constexpr std::int64_t kMin = std::numeric_limits<std::int64_t>::min();
+  constexpr std::int64_t kMax = std::numeric_limits<std::int64_t>::max();
+  {
+    // As far in the future as possible.
+    SafetyMonitor monitor(make_config());
+    SafetyInput input = clean_input(kMin);
+    input.safety.stamp_ticks = kMax;
+    EXPECT_EQ(monitor.check(input), StopCause::stale_data);
+  }
+  {
+    // As old as possible.
+    SafetyMonitor monitor(make_config());
+    SafetyInput input = clean_input(kMax);
+    input.control.stamp_ticks = kMin;
+    EXPECT_EQ(monitor.check(input), StopCause::stale_data);
+  }
+  {
+    SafetyMonitor monitor(make_config());
+    EXPECT_EQ(monitor.check(clean_input(kMax)), StopCause::none);
+  }
+}
+
 // ---- Joint limits ----------------------------------------------------------------------------
 
 TEST(SafetyMonitor, EveryJointIsCheckedAgainstBothLimitsWithItsMargin) {
@@ -398,6 +425,36 @@ TEST(SafetyMonitor, TheTipMustStayWithinTheRadius) {
   }
 }
 
+TEST(SafetyMonitor, TheTipIsHeldToTheLineEvenWhenTheShaftPassesThroughTheEntry) {
+  // The tool pivots about the entry point, as about a remote centre of motion. Its shaft is
+  // exactly in the keyhole, and only the tip's own distance from the line can object.
+  stapes::test::verifies("SRS-SAF-008");
+  const SafetyConfig config = corridor_config();
+  const Eigen::Vector3d entry = config.corridor.entry_m;
+  const stapes::math::Pose start = clean_input().safety.tracked_tool_pose;
+  const auto pivoted_to = [&](double offset) {
+    const Eigen::Vector3d tip =
+        entry + (5e-3 * tunnel_direction(config)) + (offset * sideways(config));
+    const Eigen::Vector3d axis = (tip - entry).normalized();
+    SafetyInput input = clean_input();
+    input.safety.tracked_tool_pose.translation() = tip;
+    input.safety.tracked_tool_pose.linear() =
+        Eigen::Quaterniond::FromTwoVectors(start.linear().col(0), axis).toRotationMatrix() *
+        start.linear();
+    return input;
+  };
+  {
+    SafetyMonitor monitor(config);
+    EXPECT_EQ(check_repeatedly(monitor, pivoted_to(0.99 * kRadius), 10 * kDebounce),
+              StopCause::none);
+  }
+  {
+    SafetyMonitor monitor(config);
+    EXPECT_EQ(check_repeatedly(monitor, pivoted_to(1.01 * kRadius), kDebounce),
+              StopCause::corridor);
+  }
+}
+
 TEST(SafetyMonitor, TheCorridorStopWaitsForTheDebounce) {
   stapes::test::verifies("SRS-SAF-008");
   const SafetyConfig config = corridor_config();
@@ -568,6 +625,21 @@ TEST(SafetyMonitor, EachLinkMustStayNearItsTarget) {
       }
     }
   }
+}
+
+TEST(SafetyMonitor, TheTrackingErrorUsesTheLinkEncodersNotTheMotorEncoders) {
+  // The controller steers by its motor encoders, so they can sit on the target while the link is
+  // somewhere else. That is the case this check exists for.
+  stapes::test::verifies("SRS-SAF-011");
+  SafetyConfig config = make_config();
+  config.max_encoder_disagreement_rad.setConstant(10.0);
+  // The tool roll joint turns the tool about its own axis, so the tip stays on the line.
+  constexpr Eigen::Index kRoll = 5;
+  SafetyMonitor monitor(config);
+  SafetyInput input = clean_input();
+  input.safety.link_positions_rad(kRoll) += 2.0 * config.max_tracking_error_rad(kRoll);
+  input.safety.tracked_tool_pose = forward_kinematics(config.arm, input.safety.link_positions_rad);
+  EXPECT_EQ(check_repeatedly(monitor, input, kDebounce), StopCause::tracking_error);
 }
 
 // ---- Debounce counts are per check -----------------------------------------------------------

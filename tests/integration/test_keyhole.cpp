@@ -47,6 +47,66 @@ TEST(KeyholeDrilling, FollowsThePlannedLineAcrossSeedsWithoutAFalseStop) {
   EXPECT_LT(worst_depth, 0.2e-3);
 }
 
+TEST(KeyholeDrilling, AHealthyRunKeepsAMarginToEveryMonitorLimit) {
+  // The monitor's limits were chosen from what a healthy run looks like through the monitor's
+  // own sensors. This measures that again on every build, so a change to a sensor or a gain that
+  // eats the margin shows up here before it shows up as a false stop.
+  stapes::test::verifies("SRS-SAF-018");
+  constexpr int kSeeds = 60;
+  double tracker_against_links = 0.0;
+  double tracked_tip_off_line = 0.0;
+  double tracked_shaft_at_entry = 0.0;
+  double motor_against_link = 0.0;
+  double link_against_target = 0.0;
+  double tool_force = 0.0;
+  for (int seed = 1; seed <= kSeeds; ++seed) {
+    SCOPED_TRACE("seed " + std::to_string(seed));
+    const KeyholeScenario scenario = KeyholeScenario::reference(static_cast<std::uint64_t>(seed));
+    KeyholeSimulation sim(scenario);
+    for (int i = 0; i < kRunTicks; ++i) {
+      // What the monitor is about to be shown: the readings taken at the end of the last tick.
+      const stapes::hardware::SafetySample safety = sim.arm().read_safety_sensors();
+      const stapes::hardware::SensorSample control = sim.arm().read_sensors();
+      sim.step();
+      const Eigen::Vector3d tracked_tip = safety.tracked_tool_pose.translation();
+      const Eigen::Vector3d tip_from_links =
+          stapes::kinematics::forward_kinematics(scenario.safety.arm, safety.link_positions_rad)
+              .translation();
+      tracker_against_links =
+          std::max(tracker_against_links, (tracked_tip - tip_from_links).norm());
+      tracked_tip_off_line =
+          std::max(tracked_tip_off_line, scenario.trajectory.radial_distance(tracked_tip));
+      tracked_shaft_at_entry = std::max(
+          tracked_shaft_at_entry,
+          stapes::task::axis_distance(safety.tracked_tool_pose, scenario.trajectory.entry()));
+      motor_against_link =
+          std::max(motor_against_link,
+                   (control.joint_positions_rad - safety.link_positions_rad).cwiseAbs().maxCoeff());
+      link_against_target = std::max(
+          link_against_target, (safety.link_positions_rad - sim.target()).cwiseAbs().maxCoeff());
+      tool_force = std::max(tool_force, safety.tool_wrench.head<3>().norm());
+    }
+    ASSERT_EQ(sim.monitor().cause(), stapes::safety::StopCause::none);
+  }
+  RecordProperty("margin_tracker_against_links_um",
+                 std::to_string(tracker_against_links * kMicrometresPerMetre));
+  RecordProperty("margin_tracked_tip_off_line_um",
+                 std::to_string(tracked_tip_off_line * kMicrometresPerMetre));
+  RecordProperty("margin_tracked_shaft_at_entry_um",
+                 std::to_string(tracked_shaft_at_entry * kMicrometresPerMetre));
+  RecordProperty("margin_motor_against_link_mrad", std::to_string(motor_against_link * 1e3));
+  RecordProperty("margin_link_against_target_mrad", std::to_string(link_against_target * 1e3));
+  RecordProperty("margin_tool_force_n", std::to_string(tool_force));
+
+  const stapes::safety::SafetyConfig limits = KeyholeScenario::reference(1).safety;
+  EXPECT_LT(tracker_against_links, limits.max_tracker_disagreement_m);
+  EXPECT_LT(tracked_tip_off_line, limits.corridor.radius_m);
+  EXPECT_LT(tracked_shaft_at_entry, limits.corridor.radius_m);
+  EXPECT_LT(motor_against_link, limits.max_encoder_disagreement_rad.minCoeff());
+  EXPECT_LT(link_against_target, limits.max_tracking_error_rad.minCoeff());
+  EXPECT_LT(tool_force, limits.max_tool_force_n);
+}
+
 TEST(KeyholeDrilling, EveryJointMovesAlongTheReferenceTunnel) {
   // A joint that does not move could hide a fault, so the reference scenario moves them all.
   stapes::test::verifies("SRS-KEY-006");

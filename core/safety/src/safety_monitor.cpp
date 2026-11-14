@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <stdexcept>
+#include <utility>
 
 #include "stapes/kinematics/forward_kinematics.hpp"
 
@@ -52,7 +53,7 @@ bool stale(std::int64_t stamp, std::int64_t now, std::int64_t max_age) noexcept 
   // `now - stamp` can overflow a signed integer for corrupted stamps. Unsigned subtraction
   // wraps by definition, and the true difference always fits because `stamp <= now`.
   const std::uint64_t age = static_cast<std::uint64_t>(now) - static_cast<std::uint64_t>(stamp);
-  return age > static_cast<std::uint64_t>(max_age);
+  return std::cmp_greater(age, max_age);
 }
 
 bool finite(const SafetyInput& input) noexcept {
