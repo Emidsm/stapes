@@ -58,6 +58,28 @@ KeyholeScenario KeyholeScenario::reference(std::uint64_t seed) {
   };
 }
 
+KeyholeScenario without_monitor_limits(KeyholeScenario scenario) {
+  constexpr double kNever = 1e9;
+  constexpr std::int64_t kNeverTicks = 1000000;
+  safety::SafetyConfig& limits = scenario.safety;
+  kinematics::ArmModel::Joints joints = limits.arm.joints();
+  for (kinematics::RevoluteJoint& joint : joints) {
+    joint.lower_rad = -kNever;
+    joint.upper_rad = kNever;
+  }
+  limits.arm = kinematics::ArmModel(joints, limits.arm.tool());
+  limits.joint_limit_margin_rad = 0.0;
+  limits.max_velocity_rad_s.setConstant(kNever);
+  limits.max_tool_force_n = kNever;
+  limits.corridor.radius_m = kNever;
+  limits.corridor.overshoot_margin_m = kNever;
+  limits.max_tracker_disagreement_m = kNever;
+  limits.max_encoder_disagreement_rad.setConstant(kNever);
+  limits.max_tracking_error_rad.setConstant(kNever);
+  limits.max_sample_age_ticks = kNeverTicks;
+  return scenario;
+}
+
 KeyholeSimulation::KeyholeSimulation(const KeyholeScenario& scenario)
     : arm_(on_plan(scenario)),
       injector_(arm_, arm_, scenario.fault),

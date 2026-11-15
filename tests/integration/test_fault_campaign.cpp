@@ -20,10 +20,10 @@ using stapes::faults::FaultKind;
 using stapes::safety::StopCause;
 using stapes::sim::KeyholeScenario;
 using stapes::sim::KeyholeSimulation;
+using stapes::sim::without_monitor_limits;
 using stapes::test::kRunTicks;
 using stapes::test::run_scenario;
 using stapes::test::RunResult;
-using stapes::test::without_limits;
 
 constexpr double kMicrometresPerMetre = 1e6;
 constexpr double kMaxExcursionM = 0.5e-3;
@@ -181,7 +181,7 @@ TEST(WithoutTheMonitor, AFrozenEncoderIsARunaway) {
   stapes::test::verifies("SRS-SAF-023");
   double worst = 0.0;
   for (std::size_t joint = 0; joint < 3; ++joint) {
-    KeyholeScenario scenario = without_limits(KeyholeScenario::reference(44));
+    KeyholeScenario scenario = without_monitor_limits(KeyholeScenario::reference(44));
     scenario.fault = Fault{FaultKind::frozen_motor_encoder, 800, joint, 0};
     const RunResult result = run_scenario(scenario, kRunTicks);
     EXPECT_EQ(result.cause, StopCause::none);
@@ -193,7 +193,7 @@ TEST(WithoutTheMonitor, AFrozenEncoderIsARunaway) {
 
 TEST(WithoutTheMonitor, ALongDelayIsUnstable) {
   stapes::test::verifies("SRS-SAF-023");
-  KeyholeScenario scenario = without_limits(KeyholeScenario::reference(45));
+  KeyholeScenario scenario = without_monitor_limits(KeyholeScenario::reference(45));
   scenario.fault = Fault{FaultKind::comms_delay, 800, 0, 20};
   const RunResult result = run_scenario(scenario, kRunTicks);
   RecordProperty("unmonitored_delay_excursion_mm", std::to_string(result.max_radial_m * 1e3));
@@ -204,7 +204,7 @@ TEST(ControlLoop, StaysStableWithFiveTicksOfDelayEachWay) {
   // Margin against the limit the monitor enforces: the loop itself survives more delay than the
   // monitor will ever let it run with.
   stapes::test::verifies("SRS-CTL-011");
-  KeyholeScenario scenario = without_limits(KeyholeScenario::reference(46));
+  KeyholeScenario scenario = without_monitor_limits(KeyholeScenario::reference(46));
   scenario.fault = Fault{FaultKind::comms_delay, 800, 0, 5};
   const RunResult result = run_scenario(scenario, kRunTicks);
   RecordProperty("delay_margin_max_radial_um",

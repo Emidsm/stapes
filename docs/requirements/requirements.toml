@@ -459,4 +459,19 @@ code = ["core/sim/src/keyhole_simulation.cpp"]
 [[requirement]]
 id = "SRS-SAF-023"
 statement = "With the monitor's limits out of reach, the same faults shall take the tip beyond the limits above, which shows the faults are real and the monitor is what contains them."
-code = ["tests/integration/test_fault_campaign.cpp"]
+code = ["core/sim/src/keyhole_simulation.cpp", "tests/integration/test_fault_campaign.cpp"]
+
+[[requirement]]
+id = "SRS-TRC-001"
+statement = "The trace recorder shall keep one sample per call, in order, holding the true tool pose, joint state, plan, distances from the plan, stop cause, fault state and brake state at that tick."
+code = ["core/sim/src/trace.cpp"]
+
+[[requirement]]
+id = "SRS-TRC-002"
+statement = "The trace recorder shall reserve all its storage when built, reject zero capacity, never allocate while recording, and when full shall keep what it has and count each further sample as dropped."
+code = ["core/sim/src/trace.cpp", "core/sim/include/stapes/sim/trace.hpp"]
+
+[[requirement]]
+id = "SRS-TRC-003"
+statement = "Recording a run shall not change it: a recorded run and an unrecorded run of the same scenario shall have the same state hash."
+code = ["core/sim/src/trace.cpp"]

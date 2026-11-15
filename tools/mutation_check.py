@@ -44,6 +44,7 @@ KEYHOLE = "core/task/src/keyhole.cpp"
 INJECTOR = "core/faults/src/fault_injector.cpp"
 SIM = "core/sim/src/keyhole_simulation.cpp"
 MONITOR = "core/safety/src/safety_monitor.cpp"
+TRACE = "core/sim/src/trace.cpp"
 STREAM_MIX = "seed_mixer.next() ^ std::rotl(stream_mixer.next(), 32)"
 
 MUTATIONS = [
@@ -316,6 +317,28 @@ MUTATIONS = [
     Mutation("arm does not start on the plan", SIM, "config.initial_q = start;", ""),
     Mutation("the monitor is never consulted", SIM,
              "monitor_.check(input) != safety::StopCause::none", "false"),
+    Mutation("unmonitored baseline keeps the corridor", SIM,
+             "limits.corridor.radius_m = kNever;", ""),
+    Mutation("unmonitored baseline keeps the joint limits", SIM,
+             "limits.arm = kinematics::ArmModel(joints, limits.arm.tool());", ""),
+    Mutation("unmonitored baseline keeps the sample age limit", SIM,
+             "limits.max_sample_age_ticks = kNeverTicks;", ""),
+    Mutation("trace records the planned depth as the true depth", TRACE,
+             "tunnel.depth_of(tool.translation())", "sim.planned_depth_m()"),
+    Mutation("trace records the target as the true joint state", TRACE,
+             "sample.q = sim.arm().state().q;", "sample.q = sim.target();"),
+    Mutation("trace axis offset measured from the target", TRACE,
+             "task::axis_distance(tool, tunnel.entry())",
+             "task::axis_distance(tool, tunnel.target())"),
+    Mutation("trace never shows a fault", TRACE, "sample.fault_active = sim.fault_active();", ""),
+    Mutation("trace never shows the brakes", TRACE,
+             "sample.brakes_engaged = sim.arm().brakes_engaged();", ""),
+    Mutation("trace never shows a stop", TRACE, "sample.cause = sim.monitor().cause();", ""),
+    Mutation("trace accepts zero capacity", TRACE, "if (capacity == 0) {", "if (false) {"),
+    Mutation("a full trace grows instead of dropping", TRACE, """    ++dropped_;
+    return;""", "    ++dropped_;"),
+    Mutation("dropped samples are not counted", TRACE, "++dropped_;", ""),
+    Mutation("clear keeps the dropped count", TRACE, "dropped_ = 0;", ""),
     Mutation("reachability is not checked", SIM, """throw std::invalid_argument("the planned tunnel is not reachable");""", ""),
 ]
 

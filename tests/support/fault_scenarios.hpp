@@ -58,29 +58,6 @@ inline RunResult run_with_thrust(const sim::KeyholeScenario& scenario, double fo
   return result;
 }
 
-/// The same scenario with limits too wide to ever trip, leaving the monitor in the loop but
-/// unable to act. Used to measure what happens without its protection.
-inline sim::KeyholeScenario without_limits(sim::KeyholeScenario scenario) {
-  constexpr double kNever = 1e9;
-  safety::SafetyConfig& limits = scenario.safety;
-  kinematics::ArmModel::Joints joints = limits.arm.joints();
-  for (kinematics::RevoluteJoint& joint : joints) {
-    joint.lower_rad = -kNever;
-    joint.upper_rad = kNever;
-  }
-  limits.arm = kinematics::ArmModel(joints, limits.arm.tool());
-  limits.max_velocity_rad_s.setConstant(kNever);
-  limits.max_tracking_error_rad.setConstant(kNever);
-  limits.max_encoder_disagreement_rad.setConstant(kNever);
-  limits.max_tracker_disagreement_m = kNever;
-  limits.max_tool_force_n = kNever;
-  limits.corridor.radius_m = kNever;
-  limits.corridor.overshoot_margin_m = kNever;
-  limits.max_sample_age_ticks = 1000000;
-  limits.joint_limit_margin_rad = 0.0;
-  return scenario;
-}
-
 /// A run with a fault, reduced to one hash. Includes the monitor's decision and when it was taken.
 inline std::uint64_t fault_workload_hash(std::uint64_t seed, int ticks) {
   sim::KeyholeScenario scenario = sim::KeyholeScenario::reference(seed);

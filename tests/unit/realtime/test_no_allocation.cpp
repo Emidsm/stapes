@@ -16,6 +16,7 @@
 #include "stapes/kinematics/inverse_kinematics.hpp"
 #include "stapes/plant/simulated_arm.hpp"
 #include "stapes/sim/keyhole_simulation.hpp"
+#include "stapes/sim/trace.hpp"
 
 namespace {
 
@@ -198,6 +199,21 @@ TEST(NoAllocation, ASimulationTickAfterAStopDoesNotAllocate) {
     }
   });
   EXPECT_EQ(counted, 0);
+}
+
+TEST(NoAllocation, RecordingATraceDoesNotAllocateEvenWhenFull) {
+  stapes::test::verifies("SRS-TRC-002");
+  stapes::sim::KeyholeSimulation sim(stapes::sim::KeyholeScenario::reference(1));
+  stapes::sim::TraceRecorder recorder(50);
+  const long counted = allocations_during([&] {
+    for (int i = 0; i < 80; ++i) {
+      sim.step();
+      recorder.record(sim);
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_EQ(recorder.samples().size(), 50U);
+  EXPECT_EQ(recorder.dropped(), 30U);
 }
 
 TEST(NoAllocation, MultistartInverseKinematicsDoesNotAllocate) {

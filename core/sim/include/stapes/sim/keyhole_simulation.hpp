@@ -28,6 +28,13 @@ struct KeyholeScenario {
   [[nodiscard]] static KeyholeScenario reference(std::uint64_t seed);
 };
 
+/// The same scenario with every monitor limit too wide to ever trip. The monitor stays in the
+/// loop but cannot act.
+///
+/// This exists to measure the baseline: what a fault does when nothing contains it. Without
+/// that number, a fault campaign would also pass if its faults were simply harmless.
+[[nodiscard]] KeyholeScenario without_monitor_limits(KeyholeScenario scenario);
+
 /// A complete run: robot, fault injector, controller and safety monitor, in one tick order.
 ///
 /// The controller reads and commands through the fault injector. The monitor checks each period
@@ -58,6 +65,10 @@ class KeyholeSimulation {
   [[nodiscard]] double planned_depth_m() const noexcept { return planned_depth_m_; }
   [[nodiscard]] double feed_duration_s() const noexcept { return profile_.duration_s(); }
   [[nodiscard]] std::int64_t ticks() const noexcept { return arm_.clock().ticks(); }
+
+  /// Whether the scenario's fault has started. For labelling results: nothing in the running
+  /// system can ask this.
+  [[nodiscard]] bool fault_active() const noexcept { return injector_.active(); }
 
   /// The tick at which the monitor stopped the robot, if it has.
   [[nodiscard]] std::optional<std::int64_t> stop_tick() const noexcept { return stop_tick_; }
