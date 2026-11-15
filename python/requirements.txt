@@ -1,3 +1,4 @@
 # The Python layer's dependencies, pinned. The C++ core needs none of them.
 numpy==2.3.4        # arrays for traces and analysis
+matplotlib==3.10.7  # plots for the report and the manual
 pytest==8.4.2       # tests of the bindings and the scenario layer

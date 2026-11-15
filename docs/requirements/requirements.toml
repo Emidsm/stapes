@@ -490,3 +490,15 @@ id = "SRS-PY-002"
 statement = "The bindings shall expose scenarios, faults, stop causes, the simulation and the trace recorder with the values the core holds, and shall report invalid arguments as Python exceptions."
 code = ["bindings/src/stapes_core.cpp"]
 layer = "python"
+
+[[requirement]]
+id = "SRS-PY-003"
+statement = "Every named scenario shall end as its description says: with a stop and the true tip within 0.5 mm where a stop is expected, without one and within 0.2 mm otherwise, and with the monitor disabled the same fault shall take the tip more than a hundred times further."
+code = ["python/stapes/scenarios.py", "python/stapes/run.py"]
+layer = "python"
+
+[[requirement]]
+id = "SRS-PY-004"
+statement = "A trace exported for the viewer shall be valid JSON with only finite numbers, holding the tunnel, the limits, the fault and stop events, one value per control period for each series and one arm pose per frame, and shall be byte-identical for the same seed."
+code = ["python/stapes/viewer_export.py"]
+layer = "python"
