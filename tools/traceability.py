@@ -50,6 +50,12 @@ def load_test_cases(results_dir: Path) -> list[TestCase]:
     return cases
 
 
+def without_layers(requirements: dict[str, dict], skipped: set[str]) -> dict[str, dict]:
+    """Drops requirements verified by a layer this build did not run, such as Python."""
+    return {requirement_id: requirement for requirement_id, requirement in requirements.items()
+            if requirement.get("layer", "core") not in skipped}
+
+
 def find_problems(requirements: dict[str, dict], cases: list[TestCase]) -> list[str]:
     problems = []
     if not cases:
@@ -101,9 +107,12 @@ def main() -> int:
     parser.add_argument("--requirements", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True, help="gtest JSON directory")
     parser.add_argument("--output", type=Path, help="write the matrix to this file")
+    parser.add_argument("--skip-layer", action="append", default=[],
+                        help="leave out requirements of this layer, for a build that does not "
+                             "run its tests; the complete matrix needs every layer")
     args = parser.parse_args()
 
-    requirements = load_requirements(args.requirements)
+    requirements = without_layers(load_requirements(args.requirements), set(args.skip_layer))
     cases = load_test_cases(args.results)
     problems = find_problems(requirements, cases)
 

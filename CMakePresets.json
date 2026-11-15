@@ -45,13 +45,24 @@
         "STAPES_COVERAGE": "ON",
         "STAPES_BUILD_BENCHMARKS": "OFF"
       }
+    },
+    {
+      "name": "python",
+      "displayName": "Release with the Python bindings",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "STAPES_BUILD_PYTHON": "ON",
+        "STAPES_BUILD_BENCHMARKS": "OFF"
+      }
     }
   ],
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
     { "name": "sanitize", "configurePreset": "sanitize" },
-    { "name": "coverage", "configurePreset": "coverage" }
+    { "name": "coverage", "configurePreset": "coverage" },
+    { "name": "python", "configurePreset": "python" }
   ],
   "testPresets": [
     {
@@ -71,7 +82,8 @@
         "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
       }
     },
-    { "name": "coverage", "inherits": "base", "configurePreset": "coverage" }
+    { "name": "coverage", "inherits": "base", "configurePreset": "coverage" },
+    { "name": "python", "inherits": "base", "configurePreset": "python" }
   ],
   "workflowPresets": [
     {
@@ -104,6 +116,14 @@
         { "type": "configure", "name": "coverage" },
         { "type": "build", "name": "coverage" },
         { "type": "test", "name": "coverage" }
+      ]
+    },
+    {
+      "name": "python",
+      "steps": [
+        { "type": "configure", "name": "python" },
+        { "type": "build", "name": "python" },
+        { "type": "test", "name": "python" }
       ]
     }
   ]

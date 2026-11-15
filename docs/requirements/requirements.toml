@@ -475,3 +475,18 @@ code = ["core/sim/src/trace.cpp", "core/sim/include/stapes/sim/trace.hpp"]
 id = "SRS-TRC-003"
 statement = "Recording a run shall not change it: a recorded run and an unrecorded run of the same scenario shall have the same state hash."
 code = ["core/sim/src/trace.cpp"]
+
+# The Python layer. `layer` tells the traceability tool that these are verified by the Python
+# tests, which only the `python` preset runs.
+
+[[requirement]]
+id = "SRS-PY-001"
+statement = "A run stepped through the Python bindings shall produce the same state hash as the same run in a C++ program, and a different seed a different hash."
+code = ["bindings/src/stapes_core.cpp"]
+layer = "python"
+
+[[requirement]]
+id = "SRS-PY-002"
+statement = "The bindings shall expose scenarios, faults, stop causes, the simulation and the trace recorder with the values the core holds, and shall report invalid arguments as Python exceptions."
+code = ["bindings/src/stapes_core.cpp"]
+layer = "python"

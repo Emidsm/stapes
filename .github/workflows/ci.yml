@@ -21,7 +21,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - name: Check formatting
         run: |
-          find core tests benchmarks \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
+          find core tests benchmarks bindings \( -name '*.cpp' -o -name '*.hpp' \) -print0 \
             | xargs -0 uvx "clang-format==${CLANG_FORMAT_VERSION}" --dry-run --Werror
 
   test:
@@ -48,13 +48,38 @@ jobs:
           python3 tools/traceability.py \
             --requirements docs/requirements/requirements.toml \
             --results build/debug/test-results \
-            --output build/debug/traceability.md
-      - name: Upload traceability matrix
-        if: matrix.preset == 'debug' && matrix.compiler.name == 'gcc'
-        uses: actions/upload-artifact@v4
+            --skip-layer python
+
+  # The one job that runs every layer, C++ and Python, so it is the one that produces the
+  # complete traceability matrix.
+  evidence:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14
+      - name: Create the Python environment
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -r python/requirements.txt
+      - name: Configure, build and test, with the Python bindings
+        run: |
+          source .venv/bin/activate
+          cmake --workflow --preset python
+      - name: Build the traceability matrix
+        run: |
+          python3 tools/traceability.py \
+            --requirements docs/requirements/requirements.toml \
+            --results build/python/test-results \
+            --output build/python/traceability.md
+      - uses: actions/upload-artifact@v4
         with:
-          name: traceability-matrix
-          path: build/debug/traceability.md
+          name: verification-evidence
+          path: |
+            build/python/traceability.md
 
   determinism:
     runs-on: ubuntu-24.04

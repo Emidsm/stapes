@@ -40,3 +40,17 @@ if(STAPES_BUILD_BENCHMARKS)
     EXCLUDE_FROM_ALL)
   FetchContent_MakeAvailable(benchmark)
 endif()
+
+if(STAPES_BUILD_PYTHON)
+  # Finds the interpreter that is first on the path, so an activated virtual environment wins.
+  set(Python_FIND_VIRTUALENV FIRST)
+  find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
+  set(PYBIND11_FINDPYTHON ON)
+  FetchContent_Declare(
+    pybind11
+    URL https://github.com/pybind/pybind11/archive/refs/tags/v3.0.4.tar.gz
+    URL_HASH SHA256=74b6a2c2b4573a400cafb6ecbf60c98df300cd3d0041296b913d02b2cbbb2676
+    SYSTEM
+    EXCLUDE_FROM_ALL)
+  FetchContent_MakeAvailable(pybind11)
+endif()
