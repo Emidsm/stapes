@@ -1,0 +1,55 @@
+name: Pages
+
+# Publishes the replay viewer to GitHub Pages. The runs it replays are recorded here, from
+# this commit, so the page always shows what the current code does.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      CXX: g++-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build g++-14
+      - name: Create the Python environment
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/bin/python -r python/requirements.txt
+      - name: Build the Python bindings
+        run: |
+          source .venv/bin/activate
+          cmake --preset python
+          cmake --build --preset python --target stapes_core
+      - name: Record the runs
+        run: |
+          source .venv/bin/activate
+          PYTHONPATH=build/python/python:python python -m stapes export viewer/traces
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: viewer
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

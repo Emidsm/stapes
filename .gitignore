@@ -7,3 +7,4 @@ __pycache__/
 *.gcda
 *.gcno
 *.gcov
+/viewer/traces/

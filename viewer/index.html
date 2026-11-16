@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stapes: replay of recorded runs</title>
+    <meta
+      name="description"
+      content="Replays runs recorded from the Stapes simulation: a 6-DOF arm drilling a keyhole tunnel, with injected faults and an independent safety monitor."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      { "imports": { "three": "./vendor/three.module.min.js" } }
+    </script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <h1>Stapes</h1>
+        <p class="tagline">Replay of runs recorded from the simulation. Nothing is computed here.</p>
+      </div>
+      <label class="scenario-picker">
+        <span>Scenario</span>
+        <select id="scenario"></select>
+      </label>
+    </header>
+
+    <main>
+      <section class="stage" aria-label="Arm">
+        <canvas id="arm-view"></canvas>
+        <p class="stage-note">
+          Arm at true scale. The tunnel is 10 mm long, so its error is shown magnified on the right.
+          Drag to orbit, scroll to zoom.
+        </p>
+        <div id="banner" class="banner" role="status" hidden></div>
+      </section>
+
+      <aside class="side">
+        <section class="card">
+          <h2 id="title"></h2>
+          <p id="description"></p>
+        </section>
+
+        <section class="card">
+          <h2>Down the drill axis</h2>
+          <canvas id="across-view" width="560" height="560"></canvas>
+          <p class="caption">
+            Where the true tip is, in the plane across the tunnel. Dotted ring: 0.2 mm design
+            target. Solid ring: the monitor's corridor.
+          </p>
+        </section>
+
+        <section class="card readout" aria-live="off">
+          <div><span>Time</span><strong id="r-time"></strong></div>
+          <div><span>Depth</span><strong id="r-depth"></strong></div>
+          <div><span>Tip to line</span><strong id="r-radial"></strong></div>
+          <div><span>Monitor</span><strong id="r-monitor"></strong></div>
+        </section>
+      </aside>
+
+      <section class="timeline card" aria-label="Timeline">
+        <canvas id="series-view" width="1600" height="300"></canvas>
+        <div class="transport">
+          <button id="play" type="button" aria-label="Play or pause">Play</button>
+          <input id="scrub" type="range" min="0" max="1" value="0" step="1" aria-label="Time" />
+          <label>
+            <span class="visually-hidden">Speed</span>
+            <select id="speed">
+              <option value="0.1">0.1×</option>
+              <option value="0.25">0.25×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+        </div>
+        <p class="caption">
+          Distance of the true tip from the planned line. Red dashed line: a fault is injected. Red
+          solid line: the safety monitor stops the robot. Space plays and pauses; the arrow keys step.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        An engineering project, not a medical device. The arm, the anatomy and the tissue are
+        illustrative. Every value shown was recorded from the C++ core.
+      </p>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

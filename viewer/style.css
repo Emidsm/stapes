@@ -1,0 +1,236 @@
+/* The palette is the project's: ink, scrub teal, pale teal. Signal red means only a safety stop
+   or an injected fault, here as in the manual and the plots. */
+:root {
+  --ink: #0b1f2a;
+  --teal: #0f766e;
+  --pale-teal: #ccfbf1;
+  --signal-red: #d92d20;
+  --muted: #5b6b73;
+  --rule: #d5dee1;
+  --paper: #f6f9f9;
+  --card: #ffffff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--card);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+}
+
+h2 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.tagline,
+.caption,
+.stage-note,
+footer p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.scenario-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+select,
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+}
+
+button {
+  min-width: 4.5rem;
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+  cursor: pointer;
+}
+
+select:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-areas:
+    "stage side"
+    "timeline timeline";
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.stage {
+  grid-area: stage;
+  position: relative;
+  min-height: 24rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  background: linear-gradient(#eef6f5, #fbfdfd);
+}
+
+#arm-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.stage-note {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.6rem;
+  right: 0.75rem;
+  pointer-events: none;
+}
+
+/* The one place the page uses red as a surface: the monitor has stopped the robot. */
+.banner {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 4px;
+  background: var(--signal-red);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.banner.fault {
+  background: var(--card);
+  color: var(--signal-red);
+  border: 1px solid var(--signal-red);
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+#across-view,
+#series-view {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.readout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+}
+
+.readout span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.readout strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+
+.readout strong.stopped {
+  color: var(--signal-red);
+}
+
+.timeline {
+  grid-area: timeline;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.35rem;
+}
+
+.transport input[type="range"] {
+  flex: 1;
+  accent-color: var(--teal);
+}
+
+footer {
+  padding: 0.5rem 1.25rem 1rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 860px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "stage"
+      "timeline"
+      "side";
+  }
+  .stage {
+    min-height: 18rem;
+  }
+}
