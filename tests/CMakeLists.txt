@@ -43,10 +43,11 @@ target_compile_definitions(test_safety PRIVATE STAPES_SOURCE_DIR="${PROJECT_SOUR
 stapes_add_test(test_sim unit/sim/test_trace.cpp)
 stapes_add_test(test_keyhole integration/test_keyhole.cpp)
 stapes_add_test(test_approach integration/test_approach.cpp)
+stapes_add_test(test_jog integration/test_jog.cpp)
 stapes_add_test(test_fault_campaign integration/test_fault_campaign.cpp)
 # These run the whole system for hundreds of simulated seconds. Under the sanitizers that is
 # many minutes, more than the default limit on a slow machine.
-set_tests_properties(test_keyhole test_fault_campaign test_approach PROPERTIES TIMEOUT 3600)
+set_tests_properties(test_keyhole test_fault_campaign test_approach test_jog PROPERTIES TIMEOUT 3600)
 
 # In-process tests cannot catch what changes between processes, such as reads of
 # uninitialised memory or a dependence on addresses. This runs a workload in two

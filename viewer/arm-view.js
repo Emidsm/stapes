@@ -10,6 +10,8 @@ const INK = 0x0b1f2a;
 const TEAL = 0x0f766e;
 const PALE_TEAL = 0xccfbf1;
 const SIGNAL_RED = 0xd92d20;
+// The piece the operator has chosen to turn. Amber, never red: red means a stop or a fault.
+const CHOSEN = 0xf59e0b;
 
 const LINK_RADIUS_M = [0.034, 0.03, 0.026, 0.02, 0.017, 0.003];
 const UP = new THREE.Vector3(0, 1, 0);
@@ -83,6 +85,14 @@ export class ArmView {
   #buildArm() {
     const linkMaterial = new THREE.MeshStandardMaterial({ color: 0xe8eef0, roughness: 0.55 });
     const jointMaterial = new THREE.MeshStandardMaterial({ color: TEAL, roughness: 0.4 });
+    this.jointMaterial = jointMaterial;
+    this.linkMaterial = linkMaterial;
+    this.chosenMaterial = new THREE.MeshStandardMaterial({
+      color: CHOSEN,
+      emissive: CHOSEN,
+      emissiveIntensity: 0.25,
+      roughness: 0.4,
+    });
     this.toolMaterial = new THREE.MeshStandardMaterial({ color: INK, roughness: 0.3 });
 
     // The pedestal from the floor to the first joint. It never moves.
@@ -181,6 +191,43 @@ export class ArmView {
       this.camera.position.copy(this.wideView.position);
       this.controls.target.copy(this.wideView.target);
     }
+    this.requestRender();
+  }
+
+  // Turns the camera around what it looks at, z up: by `azimuth` about the vertical and by
+  // `elevation` up or down, kept short of straight above or below.
+  orbit(azimuth, elevation) {
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const radius = offset.length();
+    const flat = Math.hypot(offset.x, offset.y);
+    const heading = Math.atan2(offset.y, offset.x) + azimuth;
+    const limit = 1.45;
+    const pitch = Math.max(-limit, Math.min(limit, Math.atan2(offset.z, flat) + elevation));
+    offset.set(
+      radius * Math.cos(pitch) * Math.cos(heading),
+      radius * Math.cos(pitch) * Math.sin(heading),
+      radius * Math.sin(pitch),
+    );
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.camera.lookAt(this.controls.target);
+    this.requestRender();
+  }
+
+  // Marks the joint the operator is turning, from 0 at the base, and the link it turns; or
+  // nothing, with null. The tool keeps its own colour, which turns red on a stop.
+  setChosenJoint(index) {
+    if (index === this.chosenJoint) {
+      return;
+    }
+    this.chosenJoint = index;
+    this.joints.forEach((mesh, i) => {
+      mesh.material = i === index ? this.chosenMaterial : this.jointMaterial;
+    });
+    this.links.forEach((mesh, i) => {
+      if (mesh.material !== this.toolMaterial) {
+        mesh.material = i === index ? this.chosenMaterial : this.linkMaterial;
+      }
+    });
     this.requestRender();
   }
 

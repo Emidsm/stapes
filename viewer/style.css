@@ -252,3 +252,44 @@ footer {
     min-height: 18rem;
   }
 }
+
+/* Hands-on mode: no timeline, so the stage takes the full height. */
+main.jog {
+  grid-template-areas: "stage side";
+}
+/* A fixed height, so that text changing in the side panel never resizes the 3D view: a resize
+   redraws it, and redrawing on every button press flickers. */
+main.jog .stage {
+  align-self: start;
+  height: clamp(24rem, calc(100vh - 9rem), 46rem);
+  min-height: 0;
+}
+
+.controls {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.controls th,
+.controls td {
+  padding: 0.3rem 0.25rem;
+  border-top: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+.controls th {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.controls td:last-child {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  main.jog {
+    grid-template-areas:
+      "stage"
+      "side";
+  }
+}

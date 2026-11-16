@@ -43,6 +43,8 @@ TRACKER = "core/plant/src/optical_tracker.cpp"
 KEYHOLE = "core/task/src/keyhole.cpp"
 INJECTOR = "core/faults/src/fault_injector.cpp"
 SIM = "core/sim/src/keyhole_simulation.cpp"
+PLANNING = "core/sim/src/planning.cpp"
+JOG = "core/sim/src/jog_simulation.cpp"
 MONITOR = "core/safety/src/safety_monitor.cpp"
 TRACE = "core/sim/src/trace.cpp"
 JOINT_MOVE = "core/task/src/joint_move.cpp"
@@ -352,7 +354,7 @@ MUTATIONS = [
     return;""", "    ++dropped_;"),
     Mutation("dropped samples are not counted", TRACE, "++dropped_;", ""),
     Mutation("clear keeps the dropped count", TRACE, "dropped_ = 0;", ""),
-    Mutation("reachability is not checked", SIM, """throw std::invalid_argument("the planned tunnel is not reachable");""", ""),
+    Mutation("reachability is not checked", PLANNING, """throw std::invalid_argument("the planned tunnel is not reachable");""", ""),
     Mutation("joint move uses a linear time scaling", JOINT_MOVE,
              "s * s * s * (10.0 + (s * (-15.0 + (6.0 * s))))", "s"),
     Mutation("joint move peak speed factor wrong", JOINT_MOVE,
@@ -361,7 +363,7 @@ MUTATIONS = [
              "!(duration_s > 0.0)", "(duration_s < 0.0)"),
     Mutation("joint move not held outside its duration", JOINT_MOVE,
              "std::clamp(time_s / duration_s_, 0.0, 1.0)", "time_s / duration_s_"),
-    Mutation("approach not checked against the entry guard", SIM,
+    Mutation("approach not checked against the entry guard", PLANNING,
              "depth_of(tip) > -guard_m", "depth_of(tip) > 1.0"),
     Mutation("approach starts on the line instead of at rest", SIM,
              "config.initial_q = approach.rest_q;", "config.initial_q = on_line;"),
@@ -371,10 +373,48 @@ MUTATIONS = [
     Mutation("planned depth ignores the standoff", SIM,
              "planned_depth_m_ = feed_depth_m - standoff_m_;",
              "planned_depth_m_ = feed_depth_m;"),
-    Mutation("approach as fast as the monitor allows", SIM,
-             "slowest_s / kPeakSpeedFraction", "slowest_s"),
+    Mutation("approach as fast as the monitor allows", PLANNING,
+             "return slowest_s / fraction;", "return slowest_s;"),
     Mutation("trace does not mark the approach", TRACE,
              "sample.approaching = sim.approaching();", ""),
+    Mutation("jog ignores the tip speed limit", JOG, "if (speed > kMaxTipSpeedMS) {",
+             "if (false) {"),
+    Mutation("jog follows the stick with no acceleration limit", JOG,
+             "change.norm() > max_change ? (change * (max_change / change.norm())) : change;",
+             "change;"),
+    Mutation("jog passes a non-finite command on", JOG,
+             "velocity_m_s.allFinite() ? velocity_m_s : Eigen::Vector3d::Zero()", "velocity_m_s"),
+    Mutation("jog does not slow down for the joints", JOG, "if (load > kJointSpeedFraction) {",
+             "if (false) {"),
+    Mutation("alignment starts while the tip moves", JOG, "if (!tip_velocity_m_s_.isZero(0.0)) {",
+             "if (false) {"),
+    Mutation("alignment not checked against the entry guard", JOG,
+             "if (detail::move_enters_guard(", "if (false && detail::move_enters_guard("),
+    Mutation("the line can be let go anywhere", JOG,
+             "if (line_depth_m_ == 0.0 && line_speed_m_s_ == 0.0) {", "if (true) {"),
+    Mutation("feed above the planned speed", JOG, "std::clamp(feed, -1.0, 1.0)", "feed"),
+    Mutation("feed goes past the target", JOG,
+             "std::clamp(line_depth_m_, 0.0, line_.length_m())", "line_depth_m_"),
+    Mutation("a held button acts every tick", JOG,
+             "const bool align_pressed = input.align && !previous_.align;",
+             "const bool align_pressed = input.align;"),
+    Mutation("the operator's fault never starts", JOG, "injector_.start_at(ticks());", ""),
+    Mutation("jog never consults the monitor", JOG,
+             "monitor_.check(safety_input) != safety::StopCause::none", "false"),
+    Mutation("joint jog ignores its speed limit", JOG,
+             "const double top_speed = kJointSpeedFraction * limits_.max_velocity_rad_s(i);",
+             "const double top_speed = limits_.max_velocity_rad_s(i);"),
+    Mutation("joint jog with no acceleration limit", JOG,
+             "approach_value(joint_velocity_rad_s_(i), wanted, max_step)", "wanted"),
+    Mutation("joint jog does not slow down before the soft limit", JOG,
+             "wanted = std::clamp(wanted, -stoppable, stoppable);", ""),
+    Mutation("joint jog moves every joint", JOG, "double wanted = i == joint ?",
+             "double wanted = true ?"),
+    Mutation("joint jog passes a non-finite rate on", JOG,
+             "std::isfinite(rate) ? std::clamp(rate, -1.0, 1.0) : 0.0", "rate"),
+    Mutation("joint mode switches while the arm moves", JOG,
+             "return !tip_velocity_m_s_.isZero(0.0) || !joint_velocity_rad_s_.isZero(0.0);",
+             "return !tip_velocity_m_s_.isZero(0.0);"),
 ]
 
 TEST_TIMEOUT_S = 300

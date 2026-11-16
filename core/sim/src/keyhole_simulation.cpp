@@ -6,39 +6,27 @@
 #include "stapes/kinematics/forward_kinematics.hpp"
 #include "stapes/kinematics/inverse_kinematics.hpp"
 
+#include "planning.hpp"
+
 namespace stapes::sim {
 
 namespace {
-
-constexpr double kPlanStepM = 0.5e-3;
 
 double seconds(base::SimDuration duration) {
   return std::chrono::duration<double>(duration).count();
 }
 
-// How finely an approach is checked against the monitor's entry guard before it runs.
-constexpr int kApproachChecks = 200;
-
 // The straight line the feed follows: the tunnel, extended back to the standoff point.
 task::KeyholeTrajectory feed_line_of(const KeyholeScenario& scenario) {
-  const task::KeyholeTrajectory& tunnel = scenario.trajectory;
-  if (!scenario.approach) {
-    return tunnel;
-  }
-  return {tunnel.entry() - (scenario.approach->standoff_m * tunnel.direction()), tunnel.target(),
-          tunnel.pose_at(0.0)};
+  return scenario.approach ? detail::feed_line(scenario.trajectory, scenario.approach->standoff_m)
+                           : scenario.trajectory;
 }
 
-// The configuration at the start of the feed, found by walking the whole line from `seed` as
-// the follower will at run time.
+// The configuration at the start of the feed.
 kinematics::JointVector feed_start_q(const KeyholeScenario& scenario,
                                      const task::KeyholeTrajectory& feed_line,
                                      const kinematics::JointVector& seed) {
-  kinematics::JointVector start;
-  if (!task::plan_is_reachable(scenario.arm.model.arm(), feed_line, seed, kPlanStepM, start)) {
-    throw std::invalid_argument("the planned tunnel is not reachable");
-  }
-  return start;
+  return detail::line_start_q(scenario.arm.model.arm(), feed_line, seed);
 }
 
 }  // namespace
@@ -64,15 +52,9 @@ KeyholeSimulation::Plan make_plan(const KeyholeScenario& scenario) {
   const task::JointMove move(approach.rest_q, on_line, approach.move_s);
   // The monitor holds the tip to the line once it is inside the guard. A move that cut inside
   // the guard before reaching the line would be stopped, so it is refused before it starts.
-  const kinematics::ArmModel& model = scenario.arm.model.arm();
-  const double guard_m = scenario.safety.corridor.entry_guard_m;
-  for (int i = 0; i <= kApproachChecks; ++i) {
-    const double time_s = approach.move_s * i / kApproachChecks;
-    const Eigen::Vector3d tip =
-        kinematics::forward_kinematics(model, move.at(time_s)).translation();
-    if (scenario.trajectory.depth_of(tip) > -guard_m) {
-      throw std::invalid_argument("the approach enters the entry guard off the line");
-    }
+  if (detail::move_enters_guard(scenario.arm.model.arm(), move, scenario.trajectory,
+                                scenario.safety.corridor.entry_guard_m)) {
+    throw std::invalid_argument("the approach enters the entry guard off the line");
   }
   config.initial_q = approach.rest_q;
   return {config, feed_line, move};
@@ -132,12 +114,8 @@ KeyholeScenario with_approach(KeyholeScenario scenario) {
     throw std::invalid_argument("the rest pose is not reachable");
   }
   scenario.approach->rest_q = solved.q;
-  // The duration that brings the fastest joint, relative to its own limit, to the chosen
-  // fraction of that limit.
-  const double slowest_s = (task::JointMove(solved.q, on_line, 1.0).peak_speeds_rad_s().array() /
-                            scenario.safety.max_velocity_rad_s.array())
-                               .maxCoeff();
-  scenario.approach->move_s = slowest_s / kPeakSpeedFraction;
+  scenario.approach->move_s =
+      detail::move_duration_s(solved.q, on_line, scenario.safety, kPeakSpeedFraction);
   return scenario;
 }
 
