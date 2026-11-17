@@ -51,7 +51,7 @@ jobs:
             --skip-layer python
 
   # The one job that runs every layer, C++ and Python, so it is the one that produces the
-  # complete traceability matrix.
+  # complete traceability matrix and the test report.
   evidence:
     runs-on: ubuntu-24.04
     env:
@@ -75,11 +75,20 @@ jobs:
             --requirements docs/requirements/requirements.toml \
             --results build/python/test-results \
             --output build/python/traceability.md
+      - name: Build the test report
+        run: |
+          python3 tools/test_report.py \
+            --requirements docs/requirements/requirements.toml \
+            --results build/python/test-results \
+            --build-dir build/python \
+            --output build/python/test-report.md
+          cat build/python/test-report.md >> "${GITHUB_STEP_SUMMARY}"
       - uses: actions/upload-artifact@v4
         with:
           name: verification-evidence
           path: |
             build/python/traceability.md
+            build/python/test-report.md
 
   determinism:
     runs-on: ubuntu-24.04
