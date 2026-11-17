@@ -1,0 +1,184 @@
+# Hazards of the simulated system, and the requirements that control each one.
+#
+# tools/traceability.py reads this file. It fails if a hazard has no control, if a control is
+# not a requirement that exists, or if a control's tests did not pass. docs/risk-analysis.md
+# explains the method and the scales.
+#
+# severity and probability are 1 (lowest) to 5 (highest). `probability` is the estimate with no
+# control in place; `residual_probability` is the estimate with the controls working.
+
+[[hazard]]
+id = "HAZ-01"
+hazard = "The drill tip leaves the planned tunnel sideways."
+causes = "Control error, gearbox flex under drilling load, or any fault below."
+harm = "Damage to a structure beside the tunnel, such as a nerve."
+severity = 5
+probability = 3
+controls = ["SRS-KEY-006", "SRS-KEY-007", "SRS-SAF-008", "SRS-SAF-021"]
+residual_probability = 1
+residual = "Between 2 N and 5 N of thrust the tip can be between 0.2 mm and 0.3 mm from the line without a stop: the corridor is wider than the design target."
+
+[[hazard]]
+id = "HAZ-02"
+hazard = "The drill goes deeper than the planned target."
+causes = "A feed that does not stop, or a wrong depth estimate."
+harm = "Damage to the structure beyond the target."
+severity = 5
+probability = 2
+controls = ["SRS-KEY-004", "SRS-KEY-006", "SRS-SAF-008"]
+residual_probability = 1
+residual = "The monitor allows 0.3 mm past the target before stopping."
+
+[[hazard]]
+id = "HAZ-03"
+hazard = "The tool tilts, so its shaft presses on the wall of the keyhole."
+causes = "A wrist joint error with the tip still on the line."
+harm = "The entry is widened or the tool is bent."
+severity = 3
+probability = 3
+controls = ["SRS-KEY-001", "SRS-KEY-002", "SRS-SAF-008"]
+residual_probability = 1
+residual = "None identified."
+
+[[hazard]]
+id = "HAZ-04"
+hazard = "A motor encoder freezes while its timestamp stays fresh."
+causes = "A stuck sensor on a live bus."
+harm = "The controller drives the joint blind, and the tool runs away."
+severity = 5
+probability = 2
+controls = ["SRS-SAF-010", "SRS-SAF-019", "SRS-SAF-023"]
+residual_probability = 1
+residual = "A joint that is not moving when its encoder freezes shows nothing until it has to move."
+
+[[hazard]]
+id = "HAZ-05"
+hazard = "A sensor on the safety channel freezes: a link encoder or the optical tracker."
+causes = "A stuck sensor on a live bus."
+harm = "The monitor judges the robot by a position that is no longer true."
+severity = 4
+probability = 2
+controls = ["SRS-ARM-008", "SRS-SAF-009", "SRS-SAF-019"]
+residual_probability = 1
+residual = "The force sensor is shared by both channels and has no second sensor to compare with, so a frozen force reading is not detected."
+
+[[hazard]]
+id = "HAZ-06"
+hazard = "An actuator ignores its commands and holds its last torque."
+causes = "A drive fault."
+harm = "One joint drifts off its target while the others continue."
+severity = 4
+probability = 2
+controls = ["SRS-SAF-011", "SRS-SAF-019"]
+residual_probability = 1
+residual = "This is the slowest fault to detect, because the joint leaves its target gradually."
+
+[[hazard]]
+id = "HAZ-07"
+hazard = "Sensor readings or commands arrive late."
+causes = "Communication delay between the robot and the control software."
+harm = "The control loop loses stability and the tool oscillates."
+severity = 5
+probability = 3
+controls = ["SRS-CTL-011", "SRS-SAF-004", "SRS-SAF-020"]
+residual_probability = 1
+residual = "The simulated tracker has no latency of its own; a real one does."
+
+[[hazard]]
+id = "HAZ-08"
+hazard = "A reading, a target or a command is not a number."
+causes = "A corrupted message, or a calculation that divided by zero."
+harm = "An undefined motor command."
+severity = 4
+probability = 2
+controls = ["SRS-ACT-003", "SRS-CTL-004", "SRS-KIN-005", "SRS-SAF-003"]
+residual_probability = 1
+residual = "None identified."
+
+[[hazard]]
+id = "HAZ-09"
+hazard = "The tool presses on tissue with too much force."
+causes = "An obstacle, or a feed faster than the bone can be cut."
+harm = "Tissue damage or a broken tool."
+severity = 4
+probability = 3
+controls = ["SRS-SAF-007", "SRS-SAF-021"]
+residual_probability = 2
+residual = "The force limit depends on the single force sensor."
+
+[[hazard]]
+id = "HAZ-10"
+hazard = "A joint reaches the end of its travel or moves too fast."
+causes = "A bad plan, a control fault, or a singularity."
+harm = "Mechanical damage, or motion too fast for anyone to react to."
+severity = 3
+probability = 2
+controls = ["SRS-KIN-004", "SRS-SAF-005", "SRS-SAF-006"]
+residual_probability = 1
+residual = "The simulated arm has no physical end stops, so only the monitor limits travel."
+
+[[hazard]]
+id = "HAZ-11"
+hazard = "The robot keeps moving after the monitor has decided to stop."
+causes = "The stop depends on the controller or on the faulty path, or the brakes cannot hold."
+harm = "Every other control is defeated."
+severity = 5
+probability = 2
+controls = ["SRS-ARM-009", "SRS-FLT-007", "SRS-SAF-013", "SRS-SAF-022"]
+residual_probability = 1
+residual = "A load beyond the rated brake torque makes the brakes slip."
+
+[[hazard]]
+id = "HAZ-12"
+hazard = "The robot is restarted while the cause of a stop is still present."
+causes = "A reset that does not look at the current state."
+harm = "The fault acts again, from a position already disturbed."
+severity = 4
+probability = 3
+controls = ["SRS-SAF-014"]
+residual_probability = 1
+residual = "None identified."
+
+[[hazard]]
+id = "HAZ-13"
+hazard = "Motion starts on a plan the arm cannot complete."
+causes = "A target out of reach or beyond a joint limit part of the way along."
+harm = "The tool stops inside the tunnel, or leaves the line when a joint reaches its limit."
+severity = 4
+probability = 2
+controls = ["SRS-KEY-005", "SRS-KIN-005"]
+residual_probability = 1
+residual = "None identified."
+
+[[hazard]]
+id = "HAZ-14"
+hazard = "The monitor fails in the same way and at the same time as the controller."
+causes = "Shared sensors, shared state or shared code."
+harm = "The fault that most needs catching is the one the monitor cannot see."
+severity = 5
+probability = 3
+controls = ["SRS-ARM-008", "SRS-CTL-006", "SRS-SAF-016"]
+residual_probability = 2
+residual = "Both run in one process on one processor here. On a real system they would be separated in hardware too."
+
+[[hazard]]
+id = "HAZ-15"
+hazard = "The monitor stops a healthy procedure."
+causes = "Sensor noise taken for a fault, or a limit set too close to normal operation."
+harm = "A procedure is interrupted part of the way through, which has a cost of its own."
+severity = 2
+probability = 3
+controls = ["SRS-SAF-002", "SRS-SAF-012", "SRS-SAF-018"]
+residual_probability = 1
+residual = "None identified."
+
+[[hazard]]
+id = "HAZ-16"
+hazard = "An incident cannot be reproduced or analysed afterwards."
+causes = "Timing that varies between runs, or a record that changes what it records."
+harm = "A defect stays in the software because it could not be found."
+severity = 3
+probability = 3
+controls = ["SRS-DET-007", "SRS-RT-003", "SRS-TRC-002", "SRS-TRC-003"]
+residual_probability = 1
+residual = "Results are bit-exact only for a given compiler and maths library."

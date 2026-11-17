@@ -48,6 +48,7 @@ jobs:
           python3 tools/traceability.py \
             --requirements docs/requirements/requirements.toml \
             --results build/debug/test-results \
+            --hazards docs/risk/hazards.toml \
             --skip-layer python
 
   # The one job that runs every layer, C++ and Python, so it is the one that produces the
@@ -73,6 +74,7 @@ jobs:
         run: |
           python3 tools/traceability.py \
             --requirements docs/requirements/requirements.toml \
+            --hazards docs/risk/hazards.toml \
             --results build/python/test-results \
             --output build/python/traceability.md
       - name: Build the test report

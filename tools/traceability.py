@@ -2,7 +2,8 @@
 """Build the traceability matrix from test results, and fail if it has gaps.
 
 Fails when a requirement has no test, a test names an unknown requirement, a linked
-test did not pass, or no results were found.
+test did not pass, or no results were found. Given the hazard list, it also fails when
+a hazard has no control, or a control is not a requirement verified by passing tests.
 """
 
 import argparse
@@ -79,6 +80,53 @@ def find_problems(requirements: dict[str, dict], cases: list[TestCase]) -> list[
     return problems
 
 
+def load_hazards(path: Path) -> list[dict]:
+    with path.open("rb") as file:
+        hazards = tomllib.load(file)["hazard"]
+    ids = [hazard["id"] for hazard in hazards]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate hazard id")
+    return hazards
+
+
+def find_hazard_problems(hazards: list[dict], all_requirements: dict[str, dict],
+                         requirements: dict[str, dict], cases: list[TestCase]) -> list[str]:
+    """A risk control only counts if it is a requirement, and its tests pass."""
+    verified = {requirement_id for case in cases if case.passed
+                for requirement_id in case.requirements}
+    problems = []
+    for hazard in hazards:
+        if not hazard["controls"]:
+            problems.append(f"hazard has no control: {hazard['id']}")
+        if hazard["residual_probability"] > hazard["probability"]:
+            problems.append(f"controls make the hazard more likely: {hazard['id']}")
+        for control in hazard["controls"]:
+            if control not in all_requirements:
+                problems.append(f"unknown requirement {control} controls {hazard['id']}")
+            elif control in requirements and control not in verified:
+                problems.append(f"control {control} of {hazard['id']} has no passing test")
+    return problems
+
+
+def render_hazards(hazards: list[dict]) -> str:
+    lines = [
+        "",
+        "## Risk controls",
+        "",
+        "Each hazard in `docs/risk/hazards.toml`, with the requirements that control it. Every",
+        "control listed is verified by the tests in the matrix above.",
+        "",
+        "| Hazard | Description | Severity | Probability | Controls | Residual probability |",
+        "|---|---|---|---|---|---|",
+    ]
+    for hazard in hazards:
+        controls = "<br>".join(hazard["controls"])
+        lines.append(f"| {hazard['id']} | {hazard['hazard']} | {hazard['severity']} "
+                     f"| {hazard['probability']} | {controls} "
+                     f"| {hazard['residual_probability']} |")
+    return "\n".join(lines) + "\n"
+
+
 def render_matrix(requirements: dict[str, dict], cases: list[TestCase]) -> str:
     lines = [
         "# Traceability matrix",
@@ -107,22 +155,31 @@ def main() -> int:
     parser.add_argument("--requirements", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True, help="gtest JSON directory")
     parser.add_argument("--output", type=Path, help="write the matrix to this file")
+    parser.add_argument("--hazards", type=Path,
+                        help="hazard list, to check that every risk control is verified")
     parser.add_argument("--skip-layer", action="append", default=[],
                         help="leave out requirements of this layer, for a build that does not "
                              "run its tests; the complete matrix needs every layer")
     args = parser.parse_args()
 
-    requirements = without_layers(load_requirements(args.requirements), set(args.skip_layer))
+    all_requirements = load_requirements(args.requirements)
+    requirements = without_layers(all_requirements, set(args.skip_layer))
     cases = load_test_cases(args.results)
     problems = find_problems(requirements, cases)
+    hazards = load_hazards(args.hazards) if args.hazards else []
+    problems += find_hazard_problems(hazards, all_requirements, requirements, cases)
 
     if args.output:
+        document = render_matrix(requirements, cases)
+        if hazards:
+            document += render_hazards(hazards)
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(render_matrix(requirements, cases), encoding="utf-8")
+        args.output.write_text(document, encoding="utf-8")
 
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)
-    print(f"{len(requirements)} requirements, {len(cases)} test cases, {len(problems)} problems")
+    print(f"{len(requirements)} requirements, {len(hazards)} hazards, {len(cases)} test cases, "
+          f"{len(problems)} problems")
     return 1 if problems else 0
 
 
