@@ -54,6 +54,10 @@ class FaultInjector final : public hardware::RobotInterface, public hardware::Sa
   void engage_brakes() override { safety_->engage_brakes(); }
   void release_brakes() override { safety_->release_brakes(); }
 
+  /// Moves the start of the fault, for faults started by an operator rather than at a planned
+  /// tick. A start in the past takes effect at the next `update`.
+  void start_at(std::int64_t start_tick) noexcept { fault_.start_tick = start_tick; }
+
   [[nodiscard]] bool active() const noexcept {
     return fault_.kind != FaultKind::none && now_ticks_ >= fault_.start_tick;
   }

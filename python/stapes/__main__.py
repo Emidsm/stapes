@@ -1,6 +1,7 @@
 """Command line for the scenario layer: `python -m stapes --help`."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -46,6 +47,22 @@ def _plots(args) -> int:
     return 0
 
 
+def _jog(args) -> int:
+    from stapes import jog
+
+    if args.replay is not None:
+        recording = json.loads(args.replay.read_text(encoding="utf-8"))
+        session = jog.replay(recording)
+        replayed = session.recording()
+        print(f"replayed        {replayed['ticks']} ticks, fault {replayed['fault']}")
+        print(f"state hash      {replayed['state_hash']} (recorded {recording['state_hash']})")
+        print(f"monitor         {replayed['stop_cause'] or 'no stop'}")
+        return 0 if replayed["state_hash"] == recording["state_hash"] else 1
+    jog.serve(args.viewer, args.recordings, args.port, args.seed,
+              read_gamepad=not args.browser_gamepad)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m stapes", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -67,6 +84,18 @@ def main(argv: list[str] | None = None) -> int:
     plots_parser.add_argument("--seed", type=int, default=1)
     plots_parser.add_argument("--format", choices=["svg", "png", "pdf"], default="svg")
     plots_parser.set_defaults(run=_plots)
+
+    jog_parser = commands.add_parser(
+        "jog", help="drive the arm live from a gamepad in the browser, or replay a session")
+    jog_parser.add_argument("--viewer", type=Path, default=Path("viewer"))
+    jog_parser.add_argument("--recordings", type=Path, default=Path("build/jog-sessions"))
+    jog_parser.add_argument("--port", type=int, default=8765)
+    jog_parser.add_argument("--seed", type=int, default=1)
+    jog_parser.add_argument("--browser-gamepad", action="store_true",
+                            help="leave the gamepad to the browser instead of reading it from Linux")
+    jog_parser.add_argument("--replay", type=Path, metavar="RECORDING",
+                            help="run a recorded session again and compare its state hash")
+    jog_parser.set_defaults(run=_jog)
 
     args = parser.parse_args(argv)
     return args.run(args)

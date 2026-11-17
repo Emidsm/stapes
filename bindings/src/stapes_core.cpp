@@ -17,6 +17,7 @@
 #include "stapes/kinematics/arm_model.hpp"
 #include "stapes/kinematics/forward_kinematics.hpp"
 #include "stapes/safety/safety_monitor.hpp"
+#include "stapes/sim/jog_simulation.hpp"
 #include "stapes/sim/keyhole_simulation.hpp"
 #include "stapes/sim/trace.hpp"
 #include "stapes/task/keyhole.hpp"
@@ -32,9 +33,13 @@ using stapes::kinematics::JointVector;
 using stapes::kinematics::kJointCount;
 using stapes::safety::SafetyConfig;
 using stapes::safety::StopCause;
+using stapes::sim::AlignRefusal;
 using stapes::sim::Approach;
+using stapes::sim::JogMode;
+using stapes::sim::JogSimulation;
 using stapes::sim::KeyholeScenario;
 using stapes::sim::KeyholeSimulation;
+using stapes::sim::OperatorInput;
 using stapes::sim::TraceRecorder;
 using stapes::sim::TraceSample;
 using stapes::task::KeyholeTrajectory;
@@ -251,6 +256,65 @@ void bind_trace(py::module_& m) {
       });
 }
 
+void bind_jog(py::module_& m) {
+  py::enum_<JogMode>(m, "JogMode")
+      .value("free", JogMode::free)
+      .value("aligning", JogMode::aligning)
+      .value("on_line", JogMode::on_line)
+      .value("joint", JogMode::joint);
+
+  py::enum_<AlignRefusal>(m, "AlignRefusal")
+      .value("none", AlignRefusal::none)
+      .value("still_moving", AlignRefusal::still_moving)
+      .value("enters_guard", AlignRefusal::enters_guard)
+      .value("not_at_standoff", AlignRefusal::not_at_standoff);
+
+  py::class_<OperatorInput>(m, "OperatorInput")
+      .def(py::init([](const Eigen::Vector3d& tip_velocity_m_s, double feed, bool align, bool fault,
+                       bool joint_mode, int joint, double joint_rate) {
+             return OperatorInput{tip_velocity_m_s, feed,  align,     fault,
+                                  joint_mode,       joint, joint_rate};
+           }),
+           py::arg("tip_velocity_m_s") = Eigen::Vector3d::Zero(), py::arg("feed") = 0.0,
+           py::arg("align") = false, py::arg("fault") = false, py::arg("joint_mode") = false,
+           py::arg("joint") = 0, py::arg("joint_rate") = 0.0)
+      .def_readwrite("tip_velocity_m_s", &OperatorInput::tip_velocity_m_s)
+      .def_readwrite("feed", &OperatorInput::feed)
+      .def_readwrite("align", &OperatorInput::align)
+      .def_readwrite("fault", &OperatorInput::fault)
+      .def_readwrite("joint_mode", &OperatorInput::joint_mode)
+      .def_readwrite("joint", &OperatorInput::joint)
+      .def_readwrite("joint_rate", &OperatorInput::joint_rate);
+
+  py::class_<JogSimulation>(m, "JogSimulation")
+      .def(py::init<const KeyholeScenario&>(), py::arg("scenario"))
+      .def("step", &JogSimulation::step, py::arg("input"))
+      .def_readonly_static("MAX_TIP_SPEED_M_S", &JogSimulation::kMaxTipSpeedMS)
+      .def_property_readonly("mode", &JogSimulation::mode)
+      .def_property_readonly("align_refusal", &JogSimulation::align_refusal)
+      .def_property_readonly("ticks", &JogSimulation::ticks)
+      .def_property_readonly("planned_depth_m", &JogSimulation::planned_depth_m)
+      .def_property_readonly("fault_active", &JogSimulation::fault_active)
+      .def_property_readonly("fault_start_tick", &JogSimulation::fault_start_tick)
+      .def_property_readonly("stop_tick", &JogSimulation::stop_tick)
+      .def_property_readonly("cause",
+                             [](const JogSimulation& sim) { return sim.monitor().cause(); })
+      .def_property_readonly(
+          "joint_positions",
+          [](const JogSimulation& sim) { return JointVector(sim.arm().state().q); })
+      .def("true_tool_pose",
+           [](const JogSimulation& sim) { return Eigen::Matrix4d(sim.true_tool_pose().matrix()); })
+      .def("state_hash", [](const JogSimulation& sim) {
+        stapes::base::StateHash hash;
+        sim.add_to_hash(hash);
+        return hash.value();
+      });
+
+  m.def("jog_mode_name", [](JogMode mode) { return std::string(stapes::sim::to_string(mode)); });
+  m.def("align_refusal_name",
+        [](AlignRefusal refusal) { return std::string(stapes::sim::to_string(refusal)); });
+}
+
 }  // namespace
 
 PYBIND11_MODULE(stapes_core, m) {
@@ -269,6 +333,7 @@ PYBIND11_MODULE(stapes_core, m) {
   bind_scenario(m);
   bind_simulation(m);
   bind_trace(m);
+  bind_jog(m);
 
   m.def("stop_cause_name",
         [](StopCause cause) { return std::string(stapes::safety::to_string(cause)); });

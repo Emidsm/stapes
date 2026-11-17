@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stapes: hands-on mode</title>
+    <meta
+      name="description"
+      content="Drive the simulated Stapes arm live from a gamepad, with the same safety monitor as the recorded runs."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      { "imports": { "three": "./vendor/three.module.min.js" } }
+    </script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <h1>Stapes</h1>
+        <p class="tagline">
+          Hands-on mode. The simulation runs live on this machine; the page only reads the gamepad
+          and draws.
+        </p>
+      </div>
+      <label class="scenario-picker">
+        <span>Fault for B</span>
+        <select id="fault">
+          <option value="none">None</option>
+          <option value="frozen_motor_encoder" selected>Frozen motor encoder</option>
+          <option value="frozen_link_encoder">Frozen link encoder</option>
+          <option value="frozen_tracker">Frozen optical tracker</option>
+          <option value="stuck_actuator">Stuck actuator</option>
+          <option value="comms_delay">Communication delay</option>
+        </select>
+      </label>
+    </header>
+
+    <main class="jog">
+      <section class="stage" aria-label="Arm">
+        <canvas id="arm-view"></canvas>
+        <p class="stage-note">
+          Arm at true scale. The stick moves the tip relative to the camera: drag to orbit, scroll to
+          zoom.
+        </p>
+        <div id="banner" class="banner" role="status" hidden></div>
+        <div class="stage-tools">
+          <button id="follow" type="button" class="secondary" aria-pressed="false">Follow tip</button>
+          <button id="reset" type="button" class="secondary">Start again</button>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="card">
+          <h2 id="mode">Connecting…</h2>
+          <p id="hint"></p>
+          <p id="pad" class="caption">No gamepad yet: press any button on it. The keyboard works too.</p>
+        </section>
+
+        <section class="card">
+          <h2>Down the drill axis</h2>
+          <canvas id="across-view" width="560" height="560"></canvas>
+          <p class="caption">
+            Where the true tip is, across the tunnel. Dotted ring: 0.2 mm design target. Solid ring:
+            the monitor's corridor, in force from 2 mm before the entry.
+          </p>
+        </section>
+
+        <section class="card readout" aria-live="off">
+          <div><span>Time</span><strong id="r-time"></strong></div>
+          <div><span>Depth</span><strong id="r-depth"></strong></div>
+          <div><span>Tip to line</span><strong id="r-radial"></strong></div>
+          <div><span>Monitor</span><strong id="r-monitor"></strong></div>
+        </section>
+
+        <section class="card">
+          <h2>Controls</h2>
+          <table class="controls">
+            <tr><th>Left stick</th><td>Move the tip across; in joint mode, turn the joint</td><td>W A S D</td></tr>
+            <tr><th>Right stick</th><td>Up and down; on the line, drill in and back out</td><td>E / Q</td></tr>
+            <tr><th>A</th><td>Align with the plan, or let go of it at the standoff</td><td>Space</td></tr>
+            <tr><th>B</th><td>Inject the chosen fault</td><td>X</td></tr>
+            <tr><th>View</th><td>Turn one joint at a time, or go back to the tip</td><td>J</td></tr>
+            <tr><th>LB / RB</th><td>Choose the joint, in joint mode</td><td>[ / ]</td></tr>
+            <tr><th>Right stick</th><td>In joint mode, turn the view</td><td>Arrows</td></tr>
+            <tr><th>X or Y</th><td>Follow the tip</td><td>F</td></tr>
+            <tr><th>Start</th><td>Start again</td><td>Backspace</td></tr>
+          </table>
+        </section>
+      </aside>
+    </main>
+
+    <footer>
+      <p>
+        An engineering project, not a medical device. Run it with
+        <code>python -m stapes jog</code>; each session is recorded as its inputs and replays
+        exactly.
+      </p>
+    </footer>
+
+    <script type="module" src="jog.js"></script>
+  </body>
+</html>

@@ -533,3 +533,50 @@ code = ["core/safety/src/safety_monitor.cpp"]
 id = "SRS-SAF-025"
 statement = "Each fault of the campaign, injected while the arm approaches from rest, shall stop the robot before the tip reaches the entry guard."
 code = ["core/safety/src/safety_monitor.cpp", "core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-001"
+statement = "In free mode the tool tip shall follow the operator's velocity command, cut to 25 mm/s, changed by at most 0.025 m/s², and slowed wherever a joint would pass half its speed limit, while the tool keeps its direction. Jogging shall start from a rest pose."
+code = ["core/sim/src/jog_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-002"
+statement = "On the operator's request the arm shall move in joint space onto the planned line at the standoff, and shall refuse to while the tip is moving or when the move would bring the tip inside the entry guard."
+code = ["core/sim/src/jog_simulation.cpp", "core/sim/src/planning.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-003"
+statement = "On the line, the operator shall set only the feed along it, no faster than the planned feed speed, from the standoff to the target, with the tip within 0.2 mm of the line inside the guard. Leaving the line shall be allowed only at the standoff."
+code = ["core/sim/src/jog_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-004"
+statement = "The monitor shall stop the robot when the operator moves the tip into the entry guard off the line, before the tip reaches the entry."
+code = ["core/sim/src/jog_simulation.cpp", "core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-005"
+statement = "A fault started by the operator shall be contained as a planned one is: the robot stops with the true tip within 0.5 mm of the line. With no fault in the scenario, the request shall do nothing."
+code = ["core/sim/src/jog_simulation.cpp", "core/faults/src/fault_injector.cpp"]
+
+[[requirement]]
+id = "SRS-JOG-006"
+statement = "A jog session shall be a function of the seed and the sequence of operator inputs: the same sequence shall give the same state hash. A non-finite command shall be treated as no motion."
+code = ["core/sim/src/jog_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-PY-006"
+statement = "A hands-on session shall be recorded as its sequence of operator inputs, and replaying a recording shall give the same state hash. One request to the local server shall advance at most 50 control periods."
+code = ["python/stapes/jog.py"]
+layer = "python"
+
+[[requirement]]
+id = "SRS-JOG-007"
+statement = "In joint mode, only the chosen joint shall turn, at up to half its monitor speed limit and changing speed by at most 0.05 rad/s², and a joint no longer chosen shall slow down at that rate. Each joint shall slow down in time to stop 0.02 rad inside the monitor's margin, with no stop. Switching between free and joint mode shall wait for the arm to stop. An unknown joint or a non-finite rate shall move nothing."
+code = ["core/sim/src/jog_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-PY-007"
+statement = "On Linux, the hands-on server shall read the first gamepad from its evdev device and give the page its state in the browser's standard layout, for both the generic HID and the xpad axis layouts, keeping a press shorter than a frame until it has been read once."
+code = ["python/stapes/gamepad.py"]
+layer = "python"

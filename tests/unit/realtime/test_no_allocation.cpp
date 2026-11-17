@@ -15,6 +15,7 @@
 #include "stapes/kinematics/forward_kinematics.hpp"
 #include "stapes/kinematics/inverse_kinematics.hpp"
 #include "stapes/plant/simulated_arm.hpp"
+#include "stapes/sim/jog_simulation.hpp"
 #include "stapes/sim/keyhole_simulation.hpp"
 #include "stapes/sim/trace.hpp"
 
@@ -199,6 +200,62 @@ TEST(NoAllocation, ATickDuringAnApproachDoesNotAllocate) {
   });
   EXPECT_EQ(counted, 0);
   EXPECT_TRUE(sim.approaching());
+}
+
+TEST(NoAllocation, JoggingAligningAndFeedingDoNotAllocate) {
+  stapes::test::verifies("SRS-RT-003");
+  stapes::sim::KeyholeScenario scenario =
+      stapes::sim::with_approach(stapes::sim::KeyholeScenario::reference(1));
+  scenario.fault.kind = stapes::faults::FaultKind::frozen_tracker;
+  stapes::sim::JogSimulation sim(scenario);
+  stapes::sim::OperatorInput input;
+  const long counted = allocations_during([&] {
+    input.tip_velocity_m_s = Eigen::Vector3d(0.0, 0.0, 0.02);
+    for (int i = 0; i < 100; ++i) {
+      sim.step(input);
+    }
+    input = stapes::sim::OperatorInput{};
+    for (int i = 0; i < 2000; ++i) {
+      sim.step(input);
+    }
+    input.align = true;  // Plans and checks a move.
+    sim.step(input);
+    input.align = false;
+    input.feed = 1.0;
+    input.fault = true;
+    for (int i = 0; i < 100; ++i) {
+      sim.step(input);
+    }
+    input = stapes::sim::OperatorInput{};
+    input.joint_mode = true;  // Refused while aligning; joint mode is tested from rest below.
+    sim.step(input);
+    input.joint_mode = false;
+    for (int i = 0; i < 100; ++i) {
+      sim.step(input);
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_EQ(sim.mode(), stapes::sim::JogMode::aligning);
+  EXPECT_TRUE(sim.fault_active());
+}
+
+TEST(NoAllocation, TurningAJointDoesNotAllocate) {
+  stapes::test::verifies("SRS-RT-003");
+  stapes::sim::JogSimulation sim(
+      stapes::sim::with_approach(stapes::sim::KeyholeScenario::reference(1)));
+  stapes::sim::OperatorInput input;
+  const long counted = allocations_during([&] {
+    input.joint_mode = true;
+    sim.step(input);
+    input.joint_mode = false;
+    input.joint = 3;
+    input.joint_rate = 1.0;
+    for (int i = 0; i < 200; ++i) {
+      sim.step(input);
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_EQ(sim.mode(), stapes::sim::JogMode::joint);
 }
 
 TEST(NoAllocation, ASimulationTickAfterAStopDoesNotAllocate) {
