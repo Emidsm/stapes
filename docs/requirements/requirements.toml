@@ -502,3 +502,9 @@ id = "SRS-PY-004"
 statement = "A trace exported for the viewer shall be valid JSON with only finite numbers, holding the tunnel, the limits, the fault and stop events, one value per control period for each series and one arm pose per frame, and shall be byte-identical for the same seed."
 code = ["python/stapes/viewer_export.py"]
 layer = "python"
+
+[[requirement]]
+id = "SRS-PY-005"
+statement = "The plots, the viewer and the manual shall use the same colour values: ink #0B1F2A, teal #0F766E, pale teal #CCFBF1 and signal red #D92D20."
+code = ["python/stapes/palette.py", "viewer/style.css", "manual/tokens.json"]
+layer = "python"

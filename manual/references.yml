@@ -1,0 +1,23 @@
+weber2017:
+  type: article
+  title: Instrument flight to the inner ear
+  author: ["Weber, S.", "Gavaghan, K.", "Wimmer, W.", "Williamson, T.", "Gerber, N.", "Anso, J.", "Bell, B.", "Feldmann, A.", "Rathgeb, C.", "Matulic, M.", "Stebinger, M.", "Schneider, D.", "Mantokoudis, G.", "Scheidegger, O.", "Wagner, F.", "Kompis, M.", "Caversaccio, M."]
+  date: 2017
+  parent:
+    type: periodical
+    title: Science Robotics
+    volume: 2
+    issue: 4
+  serial-number:
+    doi: 10.1126/scirobotics.aal4916
+bell2013:
+  type: article
+  title: In vitro accuracy evaluation of image-guided robot system for direct cochlear access
+  author: ["Bell, B.", "Gerber, N.", "Williamson, T.", "Gavaghan, K.", "Wimmer, W.", "Caversaccio, M.", "Weber, S."]
+  date: 2013
+  page-range: 1284-1290
+  parent:
+    type: periodical
+    title: Otology & Neurotology
+    volume: 34
+    issue: 7
