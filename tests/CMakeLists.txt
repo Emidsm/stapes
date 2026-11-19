@@ -36,16 +36,17 @@ stapes_add_test(test_control unit/control/test_pid_controller.cpp
                 unit/control/test_joint_controller.cpp)
 stapes_add_test(test_closed_loop integration/test_closed_loop.cpp)
 
-stapes_add_test(test_task unit/task/test_keyhole.cpp)
+stapes_add_test(test_task unit/task/test_joint_move.cpp unit/task/test_keyhole.cpp)
 stapes_add_test(test_faults unit/faults/test_fault_injector.cpp)
 stapes_add_test(test_safety unit/safety/test_safety_monitor.cpp)
 target_compile_definitions(test_safety PRIVATE STAPES_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 stapes_add_test(test_sim unit/sim/test_trace.cpp)
 stapes_add_test(test_keyhole integration/test_keyhole.cpp)
+stapes_add_test(test_approach integration/test_approach.cpp)
 stapes_add_test(test_fault_campaign integration/test_fault_campaign.cpp)
-# These two run the whole system for hundreds of simulated seconds. Under the sanitizers that is
+# These run the whole system for hundreds of simulated seconds. Under the sanitizers that is
 # many minutes, more than the default limit on a slow machine.
-set_tests_properties(test_keyhole test_fault_campaign PROPERTIES TIMEOUT 3600)
+set_tests_properties(test_keyhole test_fault_campaign test_approach PROPERTIES TIMEOUT 3600)
 
 # In-process tests cannot catch what changes between processes, such as reads of
 # uninitialised memory or a dependence on addresses. This runs a workload in two

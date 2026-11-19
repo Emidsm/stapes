@@ -62,6 +62,7 @@ else needs a control, or an explicit decision recorded under "Residual risks" be
 | HAZ-14 | The monitor fails together with the controller | 5 | 3 | SRS-ARM-008, SRS-CTL-006, SRS-SAF-016 | 2 |
 | HAZ-15 | The monitor stops a healthy procedure | 2 | 3 | SRS-SAF-002, SRS-SAF-012, SRS-SAF-018 | 1 |
 | HAZ-16 | An incident cannot be reproduced afterwards | 3 | 3 | SRS-DET-007, SRS-RT-003, SRS-TRC-002, SRS-TRC-003 | 1 |
+| HAZ-17 | The tool reaches the entry off the line at the end of the approach | 5 | 3 | SRS-KEY-010, SRS-KEY-011, SRS-SAF-024, SRS-SAF-025 | 1 |
 
 ## How the controls work together
 
@@ -97,5 +98,9 @@ These are known, accepted for a simulation, and would need work on a real system
 - **Slow detection of a stuck actuator (HAZ-06).** The joint drifts gradually, so this fault takes
   the longest to cross a limit. The excursion stays within the harm limit, with less margin than
   the others.
+- **The approach is checked only against the tunnel (HAZ-17).** The corridor starts 2 mm before
+  the entry, and the move from rest is refused if it would cut inside that guard off the line.
+  Collisions of the arm with anything else on the way are not modelled. Phase-dependent limits,
+  which would allow a faster approach, are deliberately not used (ADR 0012).
 - **Platform-bound reproducibility (HAZ-16).** A run is bit-exact for a given compiler and maths
   library, and CI checks GCC against Clang on one platform. Nothing more is claimed.

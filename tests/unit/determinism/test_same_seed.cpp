@@ -32,6 +32,14 @@ TEST(Determinism, RunsWithAFaultAndAStopAreBitIdentical) {
             stapes::test::fault_workload_hash(42, 2000));
 }
 
+TEST(Determinism, RunsThatStartFromRestAreBitIdentical) {
+  stapes::test::verifies("SRS-DET-007");
+  EXPECT_EQ(stapes::test::approach_workload_hash(42, 2000),
+            stapes::test::approach_workload_hash(42, 2000));
+  EXPECT_NE(stapes::test::approach_workload_hash(42, 2000),
+            stapes::test::approach_workload_hash(43, 2000));
+}
+
 TEST(Determinism, ADifferentSeedChangesARunWithAFault) {
   stapes::test::verifies("SRS-DET-007");
   EXPECT_NE(stapes::test::fault_workload_hash(42, 2000),

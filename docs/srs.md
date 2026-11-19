@@ -37,6 +37,7 @@ system, and Stapes models only the first two kinds of sensing: a tracker, and a 
 | True tip to the planned line, in normal operation | 0.2 mm | SRS-KEY-006, SRS-KEY-007 |
 | True tip to the planned line, under any injected fault | 0.5 mm | SRS-SAF-019, SRS-SAF-021 |
 | Tip motion after a safety stop | 0.2 mm | SRS-SAF-022 |
+| True tip to the planned line, from the entry guard inward, after an approach from rest | 0.2 mm | SRS-KEY-011 |
 
 ## How a requirement is written
 

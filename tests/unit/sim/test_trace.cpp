@@ -69,6 +69,23 @@ TEST(TraceRecorder, ASampleHoldsTheTrueStateAtThatTick) {
   EXPECT_EQ(sample.cause, StopCause::none);
   EXPECT_FALSE(sample.fault_active);
   EXPECT_FALSE(sample.brakes_engaged);
+  EXPECT_FALSE(sample.approaching);
+}
+
+TEST(TraceRecorder, MarksTheSamplesTakenDuringAnApproach) {
+  stapes::test::verifies("SRS-TRC-001");
+  KeyholeSimulation sim(stapes::sim::with_approach(KeyholeScenario::reference(2)));
+  TraceRecorder recorder(2);
+  sim.step();
+  recorder.record(sim);
+  EXPECT_TRUE(recorder.samples().front().approaching);
+  // Before the entry, so the planned depth is negative: the tip waits at the standoff.
+  EXPECT_LT(recorder.samples().front().planned_depth_m, 0.0);
+  while (sim.approaching()) {
+    sim.step();
+  }
+  recorder.record(sim);
+  EXPECT_FALSE(recorder.samples().back().approaching);
 }
 
 TEST(TraceRecorder, ShowsTheFaultStartingAndTheStopThatFollows) {

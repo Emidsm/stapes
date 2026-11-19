@@ -26,6 +26,7 @@ struct TraceSample {
   safety::StopCause cause{safety::StopCause::none};
   bool fault_active{false};
   bool brakes_engaged{false};
+  bool approaching{false};  ///< Still on the way to the line.
 };
 
 /// Records a run for analysis and replay, without disturbing it.

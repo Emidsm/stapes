@@ -60,7 +60,9 @@ rule gives three properties:
 `sim::KeyholeSimulation::step` runs one period of 1 ms, always in this order:
 
 1. **Plan.** The feed profile gives the depth for this moment; inverse kinematics, started from
-   the last solution, turns the pose at that depth into joint targets.
+   the last solution, turns the pose at that depth into joint targets. In a run that starts from
+   rest, a joint-space move gives the targets until the arm is on the line, 5 mm before the
+   entry (ADR 0012).
 2. **Read.** The controller's readings and the monitor's readings are taken through the fault
    injector.
 3. **Check.** The monitor judges this period's input. If it stops, the brakes are engaged in this
@@ -128,6 +130,7 @@ with a counter and runs complete ticks, with a fault and a stop, to prove the co
 
 ## What is not modelled
 
+- Collisions between the arm and the patient or staff during the approach from rest.
 - Patient anatomy, bone and tissue. The tunnel is a given straight line, as a surgical plan would
   supply it, and a drilling load is an external force.
 - Tracker latency and a tracker rate below the control rate.

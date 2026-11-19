@@ -182,3 +182,14 @@ probability = 3
 controls = ["SRS-DET-007", "SRS-RT-003", "SRS-TRC-002", "SRS-TRC-003"]
 residual_probability = 1
 residual = "Results are bit-exact only for a given compiler and maths library."
+
+[[hazard]]
+id = "HAZ-17"
+hazard = "The tool reaches the entry off the planned line at the end of the approach."
+causes = "A joint-space path that cuts towards the entry, a corridor that is not yet in force when the tip arrives, or a fault during the approach."
+harm = "Damage beside the entry, before drilling has started."
+severity = 5
+probability = 3
+controls = ["SRS-KEY-010", "SRS-KEY-011", "SRS-SAF-024", "SRS-SAF-025"]
+residual_probability = 1
+residual = "Collisions of the arm with the patient or staff on the way are not modelled: the path is checked only against the tunnel's entry guard."

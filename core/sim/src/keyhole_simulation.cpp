@@ -16,16 +16,66 @@ double seconds(base::SimDuration duration) {
   return std::chrono::duration<double>(duration).count();
 }
 
-// Runs before anything is built, and starts the arm on the plan instead of beside it.
-plant::SimulatedArmConfig on_plan(const KeyholeScenario& scenario) {
-  plant::SimulatedArmConfig config = scenario.arm;
+// How finely an approach is checked against the monitor's entry guard before it runs.
+constexpr int kApproachChecks = 200;
+
+// The straight line the feed follows: the tunnel, extended back to the standoff point.
+task::KeyholeTrajectory feed_line_of(const KeyholeScenario& scenario) {
+  const task::KeyholeTrajectory& tunnel = scenario.trajectory;
+  if (!scenario.approach) {
+    return tunnel;
+  }
+  return {tunnel.entry() - (scenario.approach->standoff_m * tunnel.direction()), tunnel.target(),
+          tunnel.pose_at(0.0)};
+}
+
+// The configuration at the start of the feed, found by walking the whole line from `seed` as
+// the follower will at run time.
+kinematics::JointVector feed_start_q(const KeyholeScenario& scenario,
+                                     const task::KeyholeTrajectory& feed_line,
+                                     const kinematics::JointVector& seed) {
   kinematics::JointVector start;
-  if (!task::plan_is_reachable(config.model.arm(), scenario.trajectory, config.initial_q,
-                               kPlanStepM, start)) {
+  if (!task::plan_is_reachable(scenario.arm.model.arm(), feed_line, seed, kPlanStepM, start)) {
     throw std::invalid_argument("the planned tunnel is not reachable");
   }
-  config.initial_q = start;
-  return config;
+  return start;
+}
+
+}  // namespace
+
+struct KeyholeSimulation::Plan {
+  plant::SimulatedArmConfig arm;
+  task::KeyholeTrajectory feed_line;
+  std::optional<task::JointMove> move;
+};
+
+namespace {
+
+KeyholeSimulation::Plan make_plan(const KeyholeScenario& scenario) {
+  const task::KeyholeTrajectory feed_line = feed_line_of(scenario);
+  const kinematics::JointVector on_line = feed_start_q(scenario, feed_line, scenario.arm.initial_q);
+  plant::SimulatedArmConfig config = scenario.arm;
+  if (!scenario.approach) {
+    config.initial_q = on_line;
+    return {config, feed_line, std::nullopt};
+  }
+
+  const Approach& approach = *scenario.approach;
+  const task::JointMove move(approach.rest_q, on_line, approach.move_s);
+  // The monitor holds the tip to the line once it is inside the guard. A move that cut inside
+  // the guard before reaching the line would be stopped, so it is refused before it starts.
+  const kinematics::ArmModel& model = scenario.arm.model.arm();
+  const double guard_m = scenario.safety.corridor.entry_guard_m;
+  for (int i = 0; i <= kApproachChecks; ++i) {
+    const double time_s = approach.move_s * i / kApproachChecks;
+    const Eigen::Vector3d tip =
+        kinematics::forward_kinematics(model, move.at(time_s)).translation();
+    if (scenario.trajectory.depth_of(tip) > -guard_m) {
+      throw std::invalid_argument("the approach enters the entry guard off the line");
+    }
+  }
+  config.initial_q = approach.rest_q;
+  return {config, feed_line, move};
 }
 
 }  // namespace
@@ -36,6 +86,7 @@ KeyholeScenario KeyholeScenario::reference(std::uint64_t seed) {
   constexpr double kFeedAccelerationMS2 = 25e-3;
   constexpr double kCorridorRadiusM = 0.3e-3;
   constexpr double kOvershootMarginM = 0.3e-3;
+  constexpr double kEntryGuardM = 2e-3;
 
   plant::SimulatedArmConfig arm = plant::SimulatedArmConfig::reference(seed);
   arm.initial_q << 0.5, -0.3, 0.6, 0.4, 0.8, 0.3;
@@ -53,9 +104,41 @@ KeyholeScenario KeyholeScenario::reference(std::uint64_t seed) {
       kFeedSpeedMS,
       kFeedAccelerationMS2,
       safety::reference_safety_config(
-          safety::Corridor{entry, target, kCorridorRadiusM, kOvershootMarginM}),
+          safety::Corridor{entry, target, kCorridorRadiusM, kOvershootMarginM, kEntryGuardM}),
       faults::Fault{},
+      std::nullopt,
   };
+}
+
+KeyholeScenario with_approach(KeyholeScenario scenario) {
+  constexpr double kRetreatM = 0.12;
+  constexpr double kLiftM = 0.08;
+  // Half the monitor's speed limit, which holds during the approach as much as while drilling.
+  constexpr double kPeakSpeedFraction = 0.5;
+  constexpr double kSettleS = 0.5;
+  constexpr double kStandoffM = 5e-3;
+
+  const task::KeyholeTrajectory& tunnel = scenario.trajectory;
+  scenario.approach = Approach{kinematics::JointVector::Zero(), 1.0, kSettleS, kStandoffM};
+  const kinematics::JointVector on_line =
+      feed_start_q(scenario, feed_line_of(scenario), scenario.arm.initial_q);
+
+  // At rest: pulled back along the tunnel and lifted, with the tool pointing the same way.
+  math::Pose rest = tunnel.pose_at(0.0);
+  rest.translation() +=
+      (-(kStandoffM + kRetreatM) * tunnel.direction()) + Eigen::Vector3d(0.0, 0.0, kLiftM);
+  const kinematics::IkResult solved = kinematics::solve_ik(scenario.arm.model.arm(), rest, on_line);
+  if (!solved.converged()) {
+    throw std::invalid_argument("the rest pose is not reachable");
+  }
+  scenario.approach->rest_q = solved.q;
+  // The duration that brings the fastest joint, relative to its own limit, to the chosen
+  // fraction of that limit.
+  const double slowest_s = (task::JointMove(solved.q, on_line, 1.0).peak_speeds_rad_s().array() /
+                            scenario.safety.max_velocity_rad_s.array())
+                               .maxCoeff();
+  scenario.approach->move_s = slowest_s / kPeakSpeedFraction;
+  return scenario;
 }
 
 KeyholeScenario without_monitor_limits(KeyholeScenario scenario) {
@@ -73,6 +156,7 @@ KeyholeScenario without_monitor_limits(KeyholeScenario scenario) {
   limits.max_tool_force_n = kNever;
   limits.corridor.radius_m = kNever;
   limits.corridor.overshoot_margin_m = kNever;
+  limits.corridor.entry_guard_m = kNever;
   limits.max_tracker_disagreement_m = kNever;
   limits.max_encoder_disagreement_rad.setConstant(kNever);
   limits.max_tracking_error_rad.setConstant(kNever);
@@ -81,16 +165,28 @@ KeyholeScenario without_monitor_limits(KeyholeScenario scenario) {
 }
 
 KeyholeSimulation::KeyholeSimulation(const KeyholeScenario& scenario)
-    : arm_(on_plan(scenario)),
+    : KeyholeSimulation(scenario, make_plan(scenario)) {}
+
+KeyholeSimulation::KeyholeSimulation(const KeyholeScenario& scenario, const Plan& plan)
+    : arm_(plan.arm),
       injector_(arm_, arm_, scenario.fault),
       controller_(scenario.arm.model, scenario.gains, scenario.gearboxes,
                   seconds(scenario.arm.control_period)),
       monitor_(scenario.safety),
       trajectory_(scenario.trajectory),
-      profile_(scenario.trajectory.length_m(), scenario.feed_speed_m_s,
-               scenario.feed_acceleration_m_s2),
+      feed_line_(plan.feed_line),
+      profile_(plan.feed_line.length_m(), scenario.feed_speed_m_s, scenario.feed_acceleration_m_s2),
+      move_(plan.move),
+      standoff_m_(scenario.approach ? scenario.approach->standoff_m : 0.0),
+      feed_start_s_(scenario.approach ? scenario.approach->move_s + scenario.approach->settle_s
+                                      : 0.0),
       plan_model_(scenario.arm.model.arm()),
+      planned_depth_m_(-standoff_m_),
       target_(arm_.state().q) {}
+
+bool KeyholeSimulation::approaching() const noexcept {
+  return arm_.clock().now_seconds() < feed_start_s_;
+}
 
 void KeyholeSimulation::step() noexcept {
   if (stop_tick_.has_value()) {
@@ -99,13 +195,21 @@ void KeyholeSimulation::step() noexcept {
     return;
   }
 
-  planned_depth_m_ = profile_.depth_at(arm_.clock().now_seconds());
-  const kinematics::IkResult solved =
-      kinematics::solve_ik(plan_model_, trajectory_.pose_at(planned_depth_m_), target_);
-  // Checked before the run for every 0.5 mm of the tunnel, so a miss here is unexpected. Holding
-  // the last target is the conservative response, and the monitor sees the tracking error.
-  if (solved.converged()) {
-    target_ = solved.q;
+  const double now_s = arm_.clock().now_seconds();
+  if (move_.has_value() && now_s < feed_start_s_) {
+    // On the way to the line, and then waiting on it. The move holds its end after `move_s`.
+    target_ = move_->at(now_s);
+  } else {
+    const double feed_depth_m = profile_.depth_at(now_s - feed_start_s_);
+    planned_depth_m_ = feed_depth_m - standoff_m_;
+    const kinematics::IkResult solved =
+        kinematics::solve_ik(plan_model_, feed_line_.pose_at(feed_depth_m), target_);
+    // Checked before the run for every 0.5 mm of the line, so a miss here is unexpected.
+    // Holding the last target is the conservative response, and the monitor sees the tracking
+    // error.
+    if (solved.converged()) {
+      target_ = solved.q;
+    }
   }
 
   const hardware::SensorSample control_reading = injector_.read_sensors();

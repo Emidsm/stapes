@@ -28,11 +28,17 @@ enum class StopCause : std::uint8_t {
 };
 
 /// The planned tunnel, as a straight line with an allowed radius.
+///
+/// The radius applies only near and inside the tunnel. Further out the tool is in free space,
+/// approaching from its rest pose, and is held by the other checks alone. Where the radius
+/// starts to apply is decided from the tracked tip itself, not from anything the controller
+/// says, so a controller that is wrong about its own phase cannot switch the corridor off.
 struct Corridor {
   Eigen::Vector3d entry_m;
   Eigen::Vector3d target_m;
   double radius_m;            ///< Allowed distance from the line, for the tip and at the entry.
   double overshoot_margin_m;  ///< Allowed travel past the target.
+  double entry_guard_m;       ///< The radius applies from this far before the entry onwards.
 };
 
 struct SafetyConfig {
@@ -67,9 +73,9 @@ struct SafetyInput {
 /// Neither `check` nor `try_reset` allocates, throws or reads a clock.
 class SafetyMonitor {
  public:
-  /// @throws std::invalid_argument unless every limit is positive and finite (the joint margin
-  ///         and overshoot margin may be zero), the corridor end points are finite and distinct,
-  ///         and `debounce_checks` is at least 1.
+  /// @throws std::invalid_argument unless every limit is positive and finite (the joint margin,
+  ///         overshoot margin and entry guard may be zero), the corridor end points are finite and
+  ///         distinct, and `debounce_checks` is at least 1.
   explicit SafetyMonitor(const SafetyConfig& config);
 
   /// Runs every check on one period's input, and returns the latched cause.

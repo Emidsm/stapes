@@ -21,6 +21,7 @@ TraceSample sample_of(const KeyholeSimulation& sim) noexcept {
   sample.cause = sim.monitor().cause();
   sample.fault_active = sim.fault_active();
   sample.brakes_engaged = sim.arm().brakes_engaged();
+  sample.approaching = sim.approaching();
   return sample;
 }
 

@@ -45,6 +45,7 @@ INJECTOR = "core/faults/src/fault_injector.cpp"
 SIM = "core/sim/src/keyhole_simulation.cpp"
 MONITOR = "core/safety/src/safety_monitor.cpp"
 TRACE = "core/sim/src/trace.cpp"
+JOINT_MOVE = "core/task/src/joint_move.cpp"
 STREAM_MIX = "seed_mixer.next() ^ std::rotl(stream_mixer.next(), 32)"
 
 MUTATIONS = [
@@ -289,7 +290,19 @@ MUTATIONS = [
     Mutation("corridor ignores the tip's distance from the line", MONITOR,
              "radial_m > config_.corridor.radius_m || ", ""),
     Mutation("corridor ignores the shaft at the entry", MONITOR,
-             "shaft_at_entry_m > config_.corridor.radius_m ||", "false ||"),
+             " || shaft_at_entry_m > config_.corridor.radius_m;", ";"),
+    Mutation("corridor applies everywhere, with no entry guard", MONITOR,
+             """if (depth_m <= -config_.corridor.entry_guard_m) {
+    return false;
+  }""", ""),
+    Mutation("entry guard ignored: corridor starts at the entry", MONITOR,
+             "depth_m <= -config_.corridor.entry_guard_m", "depth_m <= 0.0"),
+    Mutation("entry guard on the wrong side of the entry", MONITOR,
+             "depth_m <= -config_.corridor.entry_guard_m",
+             "depth_m <= config_.corridor.entry_guard_m"),
+    Mutation("monitor accepts a negative entry guard", MONITOR,
+             """ &&
+                           not_negative(corridor.entry_guard_m);""", ";"),
     Mutation("corridor has no depth limit", MONITOR,
              "depth_m > corridor_length_m_ + config_.corridor.overshoot_margin_m", "false"),
     Mutation("corridor ignores the overshoot margin", MONITOR,
@@ -314,7 +327,7 @@ MUTATIONS = [
     injector_.command_torques""", """    stop_tick_ = arm_.clock().ticks();
   } else {
     injector_.command_torques"""),
-    Mutation("arm does not start on the plan", SIM, "config.initial_q = start;", ""),
+    Mutation("arm does not start on the plan", SIM, "config.initial_q = on_line;\n    return", "return"),
     Mutation("the monitor is never consulted", SIM,
              "monitor_.check(input) != safety::StopCause::none", "false"),
     Mutation("unmonitored baseline keeps the corridor", SIM,
@@ -340,6 +353,28 @@ MUTATIONS = [
     Mutation("dropped samples are not counted", TRACE, "++dropped_;", ""),
     Mutation("clear keeps the dropped count", TRACE, "dropped_ = 0;", ""),
     Mutation("reachability is not checked", SIM, """throw std::invalid_argument("the planned tunnel is not reachable");""", ""),
+    Mutation("joint move uses a linear time scaling", JOINT_MOVE,
+             "s * s * s * (10.0 + (s * (-15.0 + (6.0 * s))))", "s"),
+    Mutation("joint move peak speed factor wrong", JOINT_MOVE,
+             "kPeakSpeedFactor = 1.875", "kPeakSpeedFactor = 1.5"),
+    Mutation("joint move accepts a zero duration", JOINT_MOVE,
+             "!(duration_s > 0.0)", "(duration_s < 0.0)"),
+    Mutation("joint move not held outside its duration", JOINT_MOVE,
+             "std::clamp(time_s / duration_s_, 0.0, 1.0)", "time_s / duration_s_"),
+    Mutation("approach not checked against the entry guard", SIM,
+             "depth_of(tip) > -guard_m", "depth_of(tip) > 1.0"),
+    Mutation("approach starts on the line instead of at rest", SIM,
+             "config.initial_q = approach.rest_q;", "config.initial_q = on_line;"),
+    Mutation("feed starts without waiting on the line", SIM,
+             "scenario.approach->move_s + scenario.approach->settle_s",
+             "scenario.approach->move_s"),
+    Mutation("planned depth ignores the standoff", SIM,
+             "planned_depth_m_ = feed_depth_m - standoff_m_;",
+             "planned_depth_m_ = feed_depth_m;"),
+    Mutation("approach as fast as the monitor allows", SIM,
+             "slowest_s / kPeakSpeedFraction", "slowest_s"),
+    Mutation("trace does not mark the approach", TRACE,
+             "sample.approaching = sim.approaching();", ""),
 ]
 
 TEST_TIMEOUT_S = 300

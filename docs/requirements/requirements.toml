@@ -238,7 +238,7 @@ code = ["core/control/src/joint_controller.cpp"]
 
 [[requirement]]
 id = "SRS-DET-007"
-statement = "Runs that include a fault and a safety stop shall be bit-identical for a seed, and differ between seeds."
+statement = "Runs that include a fault and a safety stop, or an approach from rest, shall be bit-identical for a seed, and differ between seeds."
 code = ["core/sim/src/keyhole_simulation.cpp", "core/faults/src/fault_injector.cpp"]
 
 [[requirement]]
@@ -307,6 +307,21 @@ statement = "Under closed-loop control, with the tip moving around a circle at a
 code = ["core/task/src/keyhole.cpp"]
 
 [[requirement]]
+id = "SRS-KEY-009"
+statement = "A joint move shall start and end at its two configurations with zero velocity and acceleration, move every joint monotonically and in step, report each joint's peak speed, and reject non-finite ends or a duration that is not positive."
+code = ["core/task/src/joint_move.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-010"
+statement = "A run with an approach shall start at rest at its rest pose, reach the line before the entry guard, and hold there for the settle time before the feed starts. An approach whose tip would come within the guard on the way shall be refused with the arm unmoved."
+code = ["core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
+id = "SRS-KEY-011"
+statement = "From the reference rest pose with no fault, the arm shall reach the line and drill the tunnel without a stop across seeds, every joint below the monitor's speed limit, the true tip within 0.2 mm of the line from the entry guard inward, and the final depth within 0.2 mm of the target."
+code = ["core/sim/src/keyhole_simulation.cpp"]
+
+[[requirement]]
 id = "SRS-FLT-001"
 statement = "Before its start tick, or with no fault, the fault injector shall pass every reading and command through unchanged."
 code = ["core/faults/src/fault_injector.cpp"]
@@ -348,7 +363,7 @@ code = ["core/faults/src/fault_injector.cpp"]
 
 [[requirement]]
 id = "SRS-SAF-001"
-statement = "The monitor shall reject a configuration with a limit that is not positive and finite, a margin that is negative or not finite, a corridor that does not define a line, or a debounce below 1."
+statement = "The monitor shall reject a configuration with a limit that is not positive and finite, a margin or entry guard that is negative or not finite, a corridor that does not define a line, or a debounce below 1."
 code = ["core/safety/src/safety_monitor.cpp"]
 
 [[requirement]]
@@ -383,7 +398,7 @@ code = ["core/safety/src/safety_monitor.cpp"]
 
 [[requirement]]
 id = "SRS-SAF-008"
-statement = "After the debounce, the monitor shall stop if the tracked tip is farther than the radius from the planned line, the tool axis is farther than the radius from the entry, or the tip is past the target by more than the margin. Backing out along the axis shall be allowed."
+statement = "After the debounce, the monitor shall stop if the tracked tip is farther than the radius from the planned line, the tool axis is farther than the radius from the entry, or the tip is past the target by more than the margin. Backing out along the axis shall be allowed. The two distance checks apply from the entry guard inward (SRS-SAF-024)."
 code = ["core/safety/src/safety_monitor.cpp"]
 
 [[requirement]]
@@ -463,7 +478,7 @@ code = ["core/sim/src/keyhole_simulation.cpp", "tests/integration/test_fault_cam
 
 [[requirement]]
 id = "SRS-TRC-001"
-statement = "The trace recorder shall keep one sample per call, in order, holding the true tool pose, joint state, plan, distances from the plan, stop cause, fault state and brake state at that tick."
+statement = "The trace recorder shall keep one sample per call, in order, holding the true tool pose, joint state, plan, distances from the plan, stop cause, fault state, brake state and whether the arm is still approaching at that tick."
 code = ["core/sim/src/trace.cpp"]
 
 [[requirement]]
@@ -508,3 +523,13 @@ id = "SRS-PY-005"
 statement = "The plots, the viewer and the manual shall use the same colour values: ink #0B1F2A, teal #0F766E, pale teal #CCFBF1 and signal red #D92D20."
 code = ["python/stapes/palette.py", "viewer/style.css", "manual/tokens.json"]
 layer = "python"
+
+[[requirement]]
+id = "SRS-SAF-024"
+statement = "The monitor shall apply the corridor's two distance checks only when the tracked tip is less than the entry guard before the entry, judged from the tracked tip alone. Further out the tip may be anywhere. The depth limit past the target shall apply everywhere."
+code = ["core/safety/src/safety_monitor.cpp"]
+
+[[requirement]]
+id = "SRS-SAF-025"
+statement = "Each fault of the campaign, injected while the arm approaches from rest, shall stop the robot before the tip reaches the entry guard."
+code = ["core/safety/src/safety_monitor.cpp", "core/sim/src/keyhole_simulation.cpp"]

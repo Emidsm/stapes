@@ -71,4 +71,15 @@ inline std::uint64_t fault_workload_hash(std::uint64_t seed, int ticks) {
   return hash.value();
 }
 
+/// A run that starts from rest, reduced to one hash, part way through the approach.
+inline std::uint64_t approach_workload_hash(std::uint64_t seed, int ticks) {
+  sim::KeyholeSimulation sim(sim::with_approach(sim::KeyholeScenario::reference(seed)));
+  base::StateHash hash;
+  for (int i = 0; i < ticks; ++i) {
+    sim.step();
+    sim.add_to_hash(hash);
+  }
+  return hash.value();
+}
+
 }  // namespace stapes::test

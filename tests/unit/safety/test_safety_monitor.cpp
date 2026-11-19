@@ -37,13 +37,14 @@ constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
 constexpr double kTunnelLength = 10e-3;
 constexpr double kRadius = 0.3e-3;
+constexpr double kGuard = 2e-3;
 constexpr int kDebounce = 3;
 
 SafetyConfig make_config() {
   const stapes::math::Pose start = forward_kinematics(ArmModel::reference(), reference_home());
   const Eigen::Vector3d entry = start.translation();
   const Eigen::Vector3d target = entry + (kTunnelLength * start.linear().col(0));
-  SafetyConfig config = reference_safety_config(Corridor{entry, target, kRadius, 0.2e-3});
+  SafetyConfig config = reference_safety_config(Corridor{entry, target, kRadius, 0.2e-3, kGuard});
   config.debounce_checks = kDebounce;
   return config;
 }
@@ -98,13 +99,14 @@ TEST(SafetyMonitorConfig, ZeroMarginsAreAllowed) {
   SafetyConfig config = make_config();
   config.joint_limit_margin_rad = 0.0;
   config.corridor.overshoot_margin_m = 0.0;
+  config.corridor.entry_guard_m = 0.0;
   EXPECT_NO_THROW(SafetyMonitor{config});
 }
 
 TEST(SafetyMonitorConfig, InvalidValuesAreRejected) {
   stapes::test::verifies("SRS-SAF-001");
   using Change = std::function<void(SafetyConfig&)>;
-  const std::array<std::pair<const char*, Change>, 26> cases{{
+  const std::array<std::pair<const char*, Change>, 28> cases{{
       {"entry NaN", [](SafetyConfig& c) { c.corridor.entry_m(0) = kNaN; }},
       {"target infinite", [](SafetyConfig& c) { c.corridor.target_m(1) = kInf; }},
       {"tunnel with no length", [](SafetyConfig& c) { c.corridor.target_m = c.corridor.entry_m; }},
@@ -113,6 +115,8 @@ TEST(SafetyMonitorConfig, InvalidValuesAreRejected) {
       {"radius NaN", [](SafetyConfig& c) { c.corridor.radius_m = kNaN; }},
       {"overshoot negative", [](SafetyConfig& c) { c.corridor.overshoot_margin_m = -1.0; }},
       {"overshoot NaN", [](SafetyConfig& c) { c.corridor.overshoot_margin_m = kNaN; }},
+      {"guard negative", [](SafetyConfig& c) { c.corridor.entry_guard_m = -1e-3; }},
+      {"guard NaN", [](SafetyConfig& c) { c.corridor.entry_guard_m = kNaN; }},
       {"margin negative", [](SafetyConfig& c) { c.joint_limit_margin_rad = -0.1; }},
       {"margin NaN", [](SafetyConfig& c) { c.joint_limit_margin_rad = kNaN; }},
       {"period zero", [](SafetyConfig& c) { c.period_s = 0.0; }},
@@ -524,6 +528,84 @@ TEST(SafetyMonitor, BackingOutAlongTheAxisIsAllowed) {
   SafetyInput input = clean_input();
   input.safety.tracked_tool_pose.translation() -= 50e-3 * tunnel_direction(config);
   EXPECT_EQ(check_repeatedly(monitor, input, 10 * kDebounce), StopCause::none);
+}
+
+// ---- Entry guard -----------------------------------------------------------------------------
+
+// The tracked tip at `depth` along the tunnel (negative: before the entry) and `offset` off the
+// line, with the tool still parallel to the tunnel, so its shaft misses the entry by `offset`.
+SafetyInput tip_at(const SafetyConfig& config, double depth, double offset) {
+  SafetyInput input = clean_input();
+  input.safety.tracked_tool_pose.translation() =
+      config.corridor.entry_m + (depth * tunnel_direction(config)) + (offset * sideways(config));
+  return input;
+}
+
+TEST(SafetyMonitor, ShortOfTheGuardTheTipMayBeAnywhere) {
+  // Approaching from rest, the tip is centimetres off the line and the tool points elsewhere.
+  stapes::test::verifies("SRS-SAF-024");
+  const SafetyConfig config = corridor_config();
+  for (const double depth : {-1.01 * kGuard, -10e-3, -150e-3}) {
+    SafetyMonitor monitor(config);
+    EXPECT_EQ(check_repeatedly(monitor, tip_at(config, depth, 40e-3), 10 * kDebounce),
+              StopCause::none)
+        << depth;
+  }
+  // Tilted too, so neither distance check would pass if it applied.
+  SafetyMonitor monitor(config);
+  SafetyInput input = tip_at(config, -1.5 * kGuard, 5e-3);
+  input.safety.tracked_tool_pose.linear() =
+      Eigen::AngleAxisd(0.5, sideways(config)).toRotationMatrix() *
+      input.safety.tracked_tool_pose.linear();
+  EXPECT_EQ(check_repeatedly(monitor, input, 10 * kDebounce), StopCause::none);
+}
+
+TEST(SafetyMonitor, FromTheGuardInwardTheTipIsHeldToTheLine) {
+  // Before the entry, but inside the guard: the radius is already in force, so a tip arriving
+  // off the line is stopped before it reaches the patient.
+  stapes::test::verifies("SRS-SAF-024");
+  const SafetyConfig config = corridor_config();
+  for (const double depth : {-0.99 * kGuard, -0.5 * kGuard, 0.0, 5e-3}) {
+    {
+      SafetyMonitor monitor(config);
+      EXPECT_EQ(check_repeatedly(monitor, tip_at(config, depth, 0.9 * kRadius), 10 * kDebounce),
+                StopCause::none)
+          << depth;
+    }
+    {
+      SafetyMonitor monitor(config);
+      EXPECT_EQ(check_repeatedly(monitor, tip_at(config, depth, 1.1 * kRadius), kDebounce),
+                StopCause::corridor)
+          << depth;
+    }
+  }
+}
+
+TEST(SafetyMonitor, TheGuardIsJudgedFromTheTrackedTipAlone) {
+  // The links put the tip at the entry, inside the guard; the tracker puts it well outside and
+  // off the line. The corridor follows the tracker, as it does inside the tunnel. Whether the
+  // two sensors agree is a check of its own, widened out of the way here.
+  stapes::test::verifies("SRS-SAF-024");
+  const SafetyConfig config = corridor_config();
+  SafetyMonitor monitor(config);
+  EXPECT_EQ(check_repeatedly(monitor, tip_at(config, -10e-3, 40e-3), 10 * kDebounce),
+            StopCause::none);
+}
+
+TEST(SafetyMonitor, AZeroGuardStartsTheRadiusAtTheEntry) {
+  stapes::test::verifies("SRS-SAF-024");
+  SafetyConfig config = corridor_config();
+  config.corridor.entry_guard_m = 0.0;
+  {
+    SafetyMonitor monitor(config);
+    EXPECT_EQ(check_repeatedly(monitor, tip_at(config, -0.1e-3, 2.0 * kRadius), 10 * kDebounce),
+              StopCause::none);
+  }
+  {
+    SafetyMonitor monitor(config);
+    EXPECT_EQ(check_repeatedly(monitor, tip_at(config, 0.1e-3, 2.0 * kRadius), kDebounce),
+              StopCause::corridor);
+  }
 }
 
 // ---- Tracker against link encoders -----------------------------------------------------------

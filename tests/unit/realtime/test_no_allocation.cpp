@@ -188,6 +188,19 @@ TEST(NoAllocation, AFullSimulationTickWithAFaultAndAMonitorDoesNotAllocate) {
   EXPECT_EQ(sim.ticks(), 100);
 }
 
+TEST(NoAllocation, ATickDuringAnApproachDoesNotAllocate) {
+  stapes::test::verifies("SRS-RT-003");
+  stapes::sim::KeyholeSimulation sim(
+      stapes::sim::with_approach(stapes::sim::KeyholeScenario::reference(1)));
+  const long counted = allocations_during([&] {
+    for (int i = 0; i < 100; ++i) {
+      sim.step();
+    }
+  });
+  EXPECT_EQ(counted, 0);
+  EXPECT_TRUE(sim.approaching());
+}
+
 TEST(NoAllocation, ASimulationTickAfterAStopDoesNotAllocate) {
   stapes::test::verifies("SRS-RT-003");
   stapes::sim::KeyholeScenario scenario = stapes::sim::KeyholeScenario::reference(1);

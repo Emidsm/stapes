@@ -32,7 +32,8 @@ void validate(const SafetyConfig& config) {
   const Corridor& corridor = config.corridor;
   const bool corridor_ok = corridor.entry_m.allFinite() && corridor.target_m.allFinite() &&
                            positive(corridor_length(corridor)) && positive(corridor.radius_m) &&
-                           not_negative(corridor.overshoot_margin_m);
+                           not_negative(corridor.overshoot_margin_m) &&
+                           not_negative(corridor.entry_guard_m);
   const bool limits_ok = not_negative(config.joint_limit_margin_rad) && positive(config.period_s) &&
                          all_positive(config.max_velocity_rad_s) &&
                          positive(config.max_tool_force_n) &&
@@ -167,15 +168,22 @@ SafetyMonitor::Violations SafetyMonitor::debounced_violations(
 
 bool SafetyMonitor::outside_corridor(const math::Pose& tool) const noexcept {
   const Eigen::Vector3d from_entry = tool.translation() - config_.corridor.entry_m;
+  const double depth_m = corridor_direction_.dot(from_entry);
+  // Only the far end has a depth limit. Backing out is the safe direction.
+  if (depth_m > corridor_length_m_ + config_.corridor.overshoot_margin_m) {
+    return true;
+  }
+  // Short of the guard the tip is outside the patient, still approaching. The approach arrives
+  // on the line from further out than the guard, so the radius is in force before the entry.
+  if (depth_m <= -config_.corridor.entry_guard_m) {
+    return false;
+  }
   // The tip against the planned line.
   const double radial_m = corridor_direction_.cross(from_entry).norm();
   // The tool's own axis against the entry point: the shaft must pass through the keyhole. The
   // tool points along the +x axis of its frame.
   const double shaft_at_entry_m = tool.linear().col(0).cross(from_entry).norm();
-  // Only the far end has a depth limit. Backing out is the safe direction.
-  const double depth_m = corridor_direction_.dot(from_entry);
-  return radial_m > config_.corridor.radius_m || shaft_at_entry_m > config_.corridor.radius_m ||
-         depth_m > corridor_length_m_ + config_.corridor.overshoot_margin_m;
+  return radial_m > config_.corridor.radius_m || shaft_at_entry_m > config_.corridor.radius_m;
 }
 
 }  // namespace stapes::safety
