@@ -146,7 +146,7 @@ TEST(InverseKinematics, AlwaysStaysWithinJointLimits) {
     // Any target, reachable or not, and any seed, even one outside the limits.
     Pose target = forward_kinematics(kModel, stapes::test::random_configuration(kModel, rng));
     target.translation() +=
-        Eigen::Vector3d(rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0));
+        Eigen::Vector3d{rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0)};
     JointVector seed;
     for (Eigen::Index i = 0; i < seed.size(); ++i) {
       seed(i) = rng.uniform(-6.0, 6.0);
@@ -162,7 +162,7 @@ TEST(InverseKinematics, NeverClaimsSuccessOnAnUnreachableTarget) {
     // target 2 m out is unreachable from every seed.
     Pose target = Pose::Identity();
     target.translation() =
-        Eigen::Vector3d(rng.gaussian(), rng.gaussian(), rng.gaussian()).normalized() * 2.0;
+        Eigen::Vector3d{rng.gaussian(), rng.gaussian(), rng.gaussian()}.normalized() * 2.0;
     target.translation().z() += 0.30;
     const IkResult result =
         solve_ik(kModel, target, stapes::test::random_configuration(kModel, rng));
@@ -233,7 +233,7 @@ TEST(InverseKinematics, GivesUpWhenProgressBecomesNegligible) {
     stapes::base::Rng rng(77, static_cast<std::uint64_t>(i));
     Pose target = forward_kinematics(kModel, stapes::test::random_configuration(kModel, rng));
     target.translation() +=
-        Eigen::Vector3d(rng.gaussian(), rng.gaussian(), rng.gaussian()).normalized() * 0.1;
+        Eigen::Vector3d{rng.gaussian(), rng.gaussian(), rng.gaussian()}.normalized() * 0.1;
     const JointVector seed = stapes::test::random_configuration(kModel, rng);
     exhausted += solve_ik(kModel, target, seed).status == IkStatus::max_iterations ? 1 : 0;
   }

@@ -20,10 +20,13 @@ math::Pose OpticalTracker::sample(const math::Pose& true_pose) noexcept {
   }
 
   // Every draw is made even when the noise is zero, so the number of draws never depends on
-  // the parameters.
-  const Eigen::Vector3d tilt(params_.orientation_noise_rad * rng_.gaussian(),
-                             params_.orientation_noise_rad * rng_.gaussian(),
-                             params_.orientation_noise_rad * rng_.gaussian());
+  // the parameters. One draw per statement: the order in which a function's arguments are
+  // evaluated is unspecified, and GCC and Clang choose differently, so three draws passed to
+  // one constructor would land on different axes depending on the compiler.
+  Eigen::Vector3d tilt;
+  for (int axis = 0; axis < 3; ++axis) {
+    tilt(axis) = params_.orientation_noise_rad * rng_.gaussian();
+  }
   const double angle = tilt.norm();
   if (angle > 0.0) {
     measured.linear() = true_pose.linear() * Eigen::AngleAxisd(angle, tilt / angle);

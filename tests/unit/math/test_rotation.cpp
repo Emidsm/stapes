@@ -13,8 +13,10 @@ namespace {
 using stapes::math::orientation_error;
 using stapes::math::rotation_vector;
 
+// Braces, not parentheses: a braced list is evaluated left to right, so the draws reach the
+// same axes with every compiler.
 Eigen::Vector3d random_unit_vector(stapes::base::Rng& rng) {
-  return Eigen::Vector3d(rng.gaussian(), rng.gaussian(), rng.gaussian()).normalized();
+  return Eigen::Vector3d{rng.gaussian(), rng.gaussian(), rng.gaussian()}.normalized();
 }
 
 TEST(RotationVector, IsZeroForIdentity) {
