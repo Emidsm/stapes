@@ -1,12 +1,12 @@
 #import "/template.typ": *
 
 #chapter("Running scenarios", summary: [
-  Nine named runs, each showing one thing.
+  Eleven named runs, each showing one thing.
 ])
 
 The Python layer names a set of scenarios and runs them. It adds no behaviour: every scenario is
 the reference drilling task with at most one thing going wrong, and everything that happens in a
-run happens in the C++ core.
+run happens in the C++ core. Two of them start from a rest pose instead of at the entry.
 
 == The scenarios
 
@@ -17,6 +17,8 @@ python -m stapes list
 #data-table(
   (auto, 1fr, auto),
   [Name], [What it shows], [Ends in],
+  [`approach`], [The arm starts at rest, moves to the line and drills.], [no stop],
+  [`approach-stuck-actuator`], [A motor sticks on the way in, centimetres from the entry.], [stop],
   [`nominal`], [The reference tunnel with no fault.], [no stop],
   [`thrust-2n`], [A drilling thrust the control loop can hold.], [no stop],
   [`thrust-5n`], [More thrust than it can hold: the tracker sees the tip leave the line.], [stop],
@@ -28,7 +30,26 @@ python -m stapes list
   [`comms-delay`], [Readings and commands arrive 20 ms late.], [stop],
 )
 
-A fault always begins at tick 800, which is 0.8 s into the run, with the feed under way.
+A fault begins at tick 800, which is 0.8 s into the run, with the feed under way. In
+`approach-stuck-actuator` it begins at tick 6000, 6 s into the approach.
+
+== Starting from rest
+
+In the two `approach` runs the arm starts 12 cm back along the tunnel and 8 cm up. It moves to a
+point 5 mm before the entry in joint space, waits 0.5 s on the line, and feeds in. Every joint
+starts and stops at rest. The move's duration is set so that the fastest joint peaks at half the
+monitor's speed limit, which holds during the approach as it does while drilling. The approach
+takes about 15 s.
+
+#data-table(
+  (1fr, auto),
+  [Quantity], [Worst of 4 seeds],
+  [Fastest joint, as a fraction of the monitor's speed limit], [#measured("approach_peak_speed_fraction_of_limit", digits: 2)],
+  [True tip to the planned line, from the guard inward], [#measured("approach_max_radial_um") µm],
+  [True tool axis to the entry, from the guard inward], [#measured("approach_max_axis_um") µm],
+  [Final depth against the target], [#measured("approach_final_depth_error_um") µm],
+  [Faults injected during the approach, all stopped before the guard], [#measured("approach_fault_runs") runs],
+)
 
 == Running one
 

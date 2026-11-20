@@ -2,16 +2,22 @@
 
 from dataclasses import dataclass
 
-from stapes_core import Fault, FaultKind, KeyholeScenario, without_monitor_limits
+from stapes_core import Fault, FaultKind, KeyholeScenario, with_approach, without_monitor_limits
 
 # Long enough for the reference feed to finish and settle. The C++ tests use the same length.
 RUN_TICKS = 3200
 FAULT_START_TICK = 800
+# About 40 % of the way through the reference approach, with the arm near its top speed.
+APPROACH_FAULT_START_TICK = 6000
 
 
 @dataclass(frozen=True)
 class ScenarioSpec:
-    """One run of the reference drilling task, with at most one thing going wrong."""
+    """One run of the reference drilling task, with at most one thing going wrong.
+
+    With `approach`, the arm starts from rest and the run lasts until the feed has finished and
+    settled, so its length comes from the simulation rather than from `ticks`.
+    """
 
     name: str
     title: str
@@ -19,9 +25,11 @@ class ScenarioSpec:
     fault_kind: FaultKind = FaultKind.none
     fault_joint: int = 0
     fault_delay_ticks: int = 0
+    fault_start_tick: int = FAULT_START_TICK
     thrust_n: float = 0.0  # Force opposing the feed, built up over the first 0.4 s.
     monitored: bool = True
     expect_stop: bool = False
+    approach: bool = False
     ticks: int = RUN_TICKS
 
     @property
@@ -30,10 +38,12 @@ class ScenarioSpec:
 
     def build(self, seed: int) -> KeyholeScenario:
         scenario = KeyholeScenario.reference(seed)
+        if self.approach:
+            scenario = with_approach(scenario)
         if self.has_fault:
             scenario.fault = Fault(
                 kind=self.fault_kind,
-                start_tick=FAULT_START_TICK,
+                start_tick=self.fault_start_tick,
                 joint=self.fault_joint,
                 delay_ticks=self.fault_delay_ticks,
             )
@@ -41,6 +51,25 @@ class ScenarioSpec:
 
 
 _SPECS = (
+    ScenarioSpec(
+        name="approach",
+        title="From rest to the end of the tunnel",
+        description="The arm starts at rest, 18 cm from the entry, moves to the line in joint "
+        "space, and drills. The corridor applies from 2 mm before the entry; the monitor works "
+        "that out from the tracked tip, not from a phase flag.",
+        approach=True,
+    ),
+    ScenarioSpec(
+        name="approach-stuck-actuator",
+        title="Stuck actuator on the way in",
+        description="A motor holds its last torque while the arm is still approaching. The link "
+        "falls behind its target and the monitor stops the arm, centimetres from the entry.",
+        fault_kind=FaultKind.stuck_actuator,
+        fault_joint=1,
+        fault_start_tick=APPROACH_FAULT_START_TICK,
+        approach=True,
+        expect_stop=True,
+    ),
     ScenarioSpec(
         name="nominal",
         title="Nominal drilling",

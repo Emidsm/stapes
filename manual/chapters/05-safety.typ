@@ -29,7 +29,7 @@ decides the reported cause.
   [`joint_limit`], [a link is within 0.02 rad of the end of its range], [at once],
   [`joint_velocity`], [a link moves faster than 0.2 rad/s between two readings], [at once],
   [`tool_force`], [the force on the tool exceeds 20 N], [after 3 checks],
-  [`corridor`], [the tracked tip is more than 0.3 mm from the line, the tool axis is more than 0.3 mm from the entry, or the tip is more than 0.3 mm past the target], [after 3 checks],
+  [`corridor`], [from 2 mm before the entry inward, the tracked tip is more than 0.3 mm from the line or the tool axis more than 0.3 mm from the entry; anywhere, the tip is more than 0.3 mm past the target], [after 3 checks],
   [`tracker_disagreement`], [the tracker and the link encoders disagree about the tip by more than 0.3 mm], [after 3 checks],
   [`encoder_disagreement`], [a motor encoder and its link encoder disagree by more than 1 mrad], [after 3 checks],
   [`tracking_error`], [a link is more than 1.8 mrad from where the controller was told to put it], [after 3 checks],
@@ -54,6 +54,19 @@ The tip's distance from the line and the shaft's distance from the entry look al
 are independent. A tool pivoting about the entry keeps its shaft in the keyhole while its tip
 leaves the line. A tilted tool with its tip on the line has its shaft outside the keyhole. Only
 the far end has a depth limit: backing out is the safe direction.
+
+=== Where the corridor starts
+
+A run can start from a rest pose, centimetres from the entry, with the tool pointing elsewhere.
+The two distance checks would stop it at once. So they apply only from an entry guard, 2 mm
+before the entry, inward. Outside the guard the tip is in free space and the other checks still
+hold it: speed, tracking, the sensors against each other.
+
+The monitor is not told which phase the run is in. It decides from the tracked tip alone. A
+phase flag from the controller would be a second way into the monitor, and a controller wrong
+about its own phase could turn the corridor off while drilling. With the guard, being near the
+entry is exactly what turns the corridor on. The approach is planned to arrive on the line 5 mm
+out, so the tip is already on it when the guard starts (ADR 0012).
 
 == The limits and their margins
 

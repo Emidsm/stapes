@@ -48,6 +48,23 @@ MEASUREMENTS = [
     Measurement("rcm_max_axis_offset_um", "Tool axis to fulcrum, remote centre of motion", "um",
                 "< 200 um", in_readme=True),
     Measurement("rcm_largest_tilt_mrad", "Tilt reached about the fulcrum", "mrad", "> 100 mrad"),
+    Measurement("approach_max_radial_um",
+                "Tip to planned line after an approach from rest, worst of 4 seeds", "um",
+                "< 200 um", in_readme=True),
+    Measurement("approach_max_axis_um",
+                "Tool axis to entry point after an approach from rest, worst of 4 seeds", "um",
+                "< 200 um"),
+    Measurement("approach_final_depth_error_um",
+                "Final depth error after an approach from rest, worst of 4 seeds", "um",
+                "< 200 um"),
+    Measurement("approach_peak_speed_fraction_of_limit",
+                "Approach from rest: fastest joint, as a fraction of the monitor's speed limit",
+                "", "< 1", digits=2),
+    Measurement("approach_fault_runs", "Faults injected during the approach, all stopped", "runs",
+                "before the entry guard"),
+    Measurement("approach_fault_worst_latency_ms",
+                "Fault during the approach: slowest stop, always before the entry guard", "ms",
+                "recorded", in_readme=True),
     Measurement("margin_tracker_against_links_um",
                 "Healthy run: tracker against link encoders, worst of 60 seeds", "um",
                 "< 300 um (monitor limit)"),
@@ -120,7 +137,7 @@ def recorded_values(results_dir: Path) -> dict[str, str]:
 
 def formatted(measurement: Measurement, raw: str) -> str:
     try:
-        return f"{float(raw):.{measurement.digits}f} {measurement.unit}"
+        return f"{float(raw):.{measurement.digits}f} {measurement.unit}".rstrip()
     except ValueError:
         return raw
 

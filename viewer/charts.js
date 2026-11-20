@@ -14,6 +14,27 @@ const FONT = "22px system-ui, sans-serif";
 const ACROSS_RANGE_UM = 420;
 const TRAIL_TICKS = 400;
 
+// Whether the tip is where the monitor holds it to the line: from the entry guard inward. On
+// the way from rest it is centimetres off the line by design, and the error views wait.
+export function inCorridor(trace, tick) {
+  return trace.series.depth_mm[tick] > -trace.tunnel.entry_guard_mm;
+}
+
+// The largest error inside the corridor, worked out once per trace.
+const peaks = new WeakMap();
+function peakError(trace) {
+  if (!peaks.has(trace)) {
+    let peak = 0;
+    trace.series.radial_um.forEach((value, tick) => {
+      if (inCorridor(trace, tick)) {
+        peak = Math.max(peak, value);
+      }
+    });
+    peaks.set(trace, peak);
+  }
+  return peaks.get(trace);
+}
+
 export function drawAcross(canvas, trace, tick) {
   const context = canvas.getContext("2d");
   const size = canvas.width;
@@ -50,18 +71,35 @@ export function drawAcross(canvas, trace, tick) {
     ring(trace.limits.corridor_radius_um, false, MUTED, "0.3 mm");
   }
 
-  // The recent path of the tip.
+  if (!inCorridor(trace, tick)) {
+    // Still approaching: say how far there is to go instead of drawing a tip off the scale.
+    const toGuard = -trace.series.depth_mm[tick] - trace.tunnel.entry_guard_mm;
+    context.fillStyle = stopped ? SIGNAL_RED : INK;
+    context.font = FONT;
+    context.textAlign = "center";
+    context.fillText(stopped ? "Stopped on the way in" : "Approaching from rest", centre, size - 52);
+    context.fillStyle = MUTED;
+    context.fillText(`${toGuard.toFixed(1)} mm to the corridor`, centre, size - 20);
+    context.textAlign = "start";
+    return;
+  }
+
+  // The recent path of the tip, inside the corridor.
   const first = Math.max(0, tick - TRAIL_TICKS);
   context.strokeStyle = TEAL;
   context.globalAlpha = 0.45;
   context.beginPath();
+  let drawing = false;
   for (let i = first; i <= tick; i += 1) {
     const x = centre + u[i] * scale;
     const y = centre - v[i] * scale;
-    if (i === first) {
-      context.moveTo(x, y);
-    } else {
+    if (!inCorridor(trace, i)) {
+      drawing = false;
+    } else if (drawing) {
       context.lineTo(x, y);
+    } else {
+      context.moveTo(x, y);
+      drawing = true;
     }
   }
   context.stroke();
@@ -102,7 +140,7 @@ export function formatDistance(micrometres) {
 // A run without the monitor reaches a metre; a monitored one stays under half a millimetre. The
 // first needs a logarithmic axis to be readable at all.
 function verticalAxis(trace, top, bottom) {
-  const peak = Math.max(...trace.series.radial_um);
+  const peak = peakError(trace);
   if (peak > 1000) {
     const low = Math.log10(1);
     const high = Math.log10(peak * 1.3);
@@ -147,7 +185,8 @@ export function drawSeries(canvas, trace, tick) {
   }
   context.textAlign = "center";
   const seconds = (count * trace.period_s) | 0;
-  for (let s = 0; s <= seconds; s += 1) {
+  const labelEvery = seconds > 10 ? 2 : 1;
+  for (let s = 0; s <= seconds; s += labelEvery) {
     context.fillStyle = MUTED;
     context.fillText(`${s} s`, x(s / trace.period_s), height - 12);
   }
@@ -168,15 +207,34 @@ export function drawSeries(canvas, trace, tick) {
     limit(trace.limits.corridor_radius_um, false, MUTED);
   }
 
+  // The approach from rest, shaded: the error is drawn only once the tip is in the corridor.
+  const approachEnd = trace.events.approach_end_tick;
+  if (approachEnd !== null || !inCorridor(trace, 0)) {
+    let firstInside = radial.findIndex((_, i) => inCorridor(trace, i));
+    if (firstInside < 0) {
+      firstInside = count - 1;
+    }
+    context.fillStyle = RULE;
+    context.globalAlpha = 0.45;
+    context.fillRect(left, top, x(firstInside) - left, bottom - top);
+    context.globalAlpha = 1;
+    context.fillStyle = MUTED;
+    context.fillText("approaching from rest", left + 12, top + 28);
+  }
+
   // The error itself.
   context.strokeStyle = TEAL;
   context.lineWidth = 3;
   context.beginPath();
+  let drawing = false;
   for (let i = 0; i < count; i += 1) {
-    if (i === 0) {
-      context.moveTo(x(i), axis.y(radial[i]));
-    } else {
+    if (!inCorridor(trace, i)) {
+      drawing = false;
+    } else if (drawing) {
       context.lineTo(x(i), axis.y(radial[i]));
+    } else {
+      context.moveTo(x(i), axis.y(radial[i]));
+      drawing = true;
     }
   }
   context.stroke();
@@ -205,8 +263,10 @@ export function drawSeries(canvas, trace, tick) {
   context.moveTo(x(tick), top);
   context.lineTo(x(tick), bottom);
   context.stroke();
-  context.fillStyle = INK;
-  context.beginPath();
-  context.arc(x(tick), axis.y(radial[tick]), 7, 0, 2 * Math.PI);
-  context.fill();
+  if (inCorridor(trace, tick)) {
+    context.fillStyle = INK;
+    context.beginPath();
+    context.arc(x(tick), axis.y(radial[tick]), 7, 0, 2 * Math.PI);
+    context.fill();
+  }
 }

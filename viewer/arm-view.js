@@ -11,8 +11,11 @@ const TEAL = 0x0f766e;
 const PALE_TEAL = 0xccfbf1;
 const SIGNAL_RED = 0xd92d20;
 
-const LINK_RADIUS_M = [0.034, 0.03, 0.026, 0.02, 0.017, 0.006];
+const LINK_RADIUS_M = [0.034, 0.03, 0.026, 0.02, 0.017, 0.003];
 const UP = new THREE.Vector3(0, 1, 0);
+// How far the camera sits from the tip when following it: close enough to see the 10 mm feed,
+// far enough to see the tool enter the bone.
+const FOLLOW_DISTANCE_M = 0.1;
 
 export class ArmView {
   constructor(canvas) {
@@ -22,7 +25,7 @@ export class ArmView {
 
     this.scene = new THREE.Scene();
     // The simulation's world has z up, as robotics does. three.js defaults to y up.
-    this.camera = new THREE.PerspectiveCamera(35, 1, 0.01, 20);
+    this.camera = new THREE.PerspectiveCamera(35, 1, 0.002, 20);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(0.95, -0.75, 0.75);
 
@@ -35,6 +38,10 @@ export class ArmView {
     const key = new THREE.DirectionalLight(0xffffff, 1.6);
     key.position.set(1.5, -1.0, 2.5);
     this.scene.add(key);
+
+    this.following = false;
+    this.tip = null;
+    this.wideView = null;
 
     this.#buildFloor();
     this.#buildArm();
@@ -116,6 +123,7 @@ export class ArmView {
     const from = new THREE.Vector3(...entry);
     const to = new THREE.Vector3(...target);
     const direction = new THREE.Vector3().subVectors(to, from).normalize();
+    this.tunnelDirection = direction.clone();
 
     // An illustrative block of bone around the tunnel. Its size is chosen to be visible; only
     // the tunnel's position and direction come from the plan.
@@ -124,7 +132,8 @@ export class ArmView {
       new THREE.MeshStandardMaterial({
         color: PALE_TEAL,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.4,
+        depthWrite: false,
         roughness: 0.9,
       }),
     );
@@ -145,9 +154,46 @@ export class ArmView {
     this.requestRender();
   }
 
+  // Keeps the camera on the tool tip, close up, or returns it to the wide view. While following,
+  // the camera moves with the tip and can still be orbited and zoomed around it.
+  setFollowing(following) {
+    if (following === this.following || this.tip === null) {
+      return;
+    }
+    this.following = following;
+    if (following) {
+      this.wideView = {
+        position: this.camera.position.clone(),
+        target: this.controls.target.clone(),
+      };
+      // From the side of the tunnel, a little above it, so the feed moves across the picture
+      // instead of straight away from the camera.
+      const direction = this.tunnelDirection ?? new THREE.Vector3(1, 0, 0);
+      const from = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+      from.addScaledVector(direction, -from.dot(direction));
+      if (from.lengthSq() < 1e-9) {
+        from.crossVectors(direction, new THREE.Vector3(0, 0, 1));
+      }
+      from.normalize().addScaledVector(new THREE.Vector3(0, 0, 1), 0.35).normalize();
+      this.controls.target.copy(this.tip);
+      this.camera.position.copy(this.tip).addScaledVector(from, FOLLOW_DISTANCE_M);
+    } else {
+      this.camera.position.copy(this.wideView.position);
+      this.controls.target.copy(this.wideView.target);
+    }
+    this.requestRender();
+  }
+
   // `chain` is seven points: the six joint origins and the tool tip.
   setPose(chain, stopped) {
     const points = chain.map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+    const tip = points[points.length - 1];
+    if (this.following && this.tip !== null) {
+      const moved = new THREE.Vector3().subVectors(tip, this.tip);
+      this.camera.position.add(moved);
+      this.controls.target.add(moved);
+    }
+    this.tip = tip.clone();
     this.#span(this.pedestal, new THREE.Vector3(points[0].x, points[0].y, 0), points[0]);
     for (let i = 0; i < this.links.length; i += 1) {
       this.#span(this.links[i], points[i], points[i + 1]);

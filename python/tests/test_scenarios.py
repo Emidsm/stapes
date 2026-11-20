@@ -8,7 +8,7 @@ import pytest
 
 import stapes
 from stapes import viewer_export
-from stapes.scenarios import FAULT_START_TICK, SCENARIOS
+from stapes.scenarios import SCENARIOS
 
 HARM_LIMIT_M = 0.5e-3
 DESIGN_TARGET_M = 0.2e-3
@@ -24,7 +24,13 @@ def traces():
 def test_scenario_has_its_expected_outcome(traces, name):
     trace = traces[name]
     spec = trace.spec
-    assert len(trace.tick) == spec.ticks
+    if spec.approach:
+        # Starts from rest, and ends once the feed has finished and settled.
+        assert trace.approaching[0]
+        assert spec.expect_stop or not trace.approaching[-1]
+    else:
+        assert len(trace.tick) == spec.ticks
+        assert not trace.approaching.any()
     if spec.expect_stop:
         assert trace.stop_tick is not None
         assert trace.cause != stapes.StopCause.none
@@ -35,9 +41,10 @@ def test_scenario_has_its_expected_outcome(traces, name):
         assert trace.cause == stapes.StopCause.none
         assert not trace.brakes_engaged.any()
     if spec.has_fault:
-        assert trace.fault_start_tick == FAULT_START_TICK
-        assert not trace.fault_active[: FAULT_START_TICK - 1].any()
-        assert trace.fault_active[FAULT_START_TICK:].all()
+        start = spec.fault_start_tick
+        assert trace.fault_start_tick == start
+        assert not trace.fault_active[: start - 1].any()
+        assert trace.fault_active[start:].all()
         if spec.expect_stop:
             assert trace.detection_ticks >= 0
     else:
@@ -52,6 +59,15 @@ def test_the_monitor_is_what_contains_the_fault(traces):
     unmonitored = traces["frozen-motor-encoder-unmonitored"]
     assert contained.max_radial_m < HARM_LIMIT_M
     assert unmonitored.max_radial_m > 100 * HARM_LIMIT_M
+
+
+@pytest.mark.requirement("SRS-PY-003")
+def test_a_fault_on_the_way_in_is_stopped_before_the_corridor(traces):
+    trace = traces["approach-stuck-actuator"]
+    assert trace.approaching[trace.stop_tick]
+    assert not trace.inside_guard.any()
+    # Centimetres from the entry, as the description says.
+    assert trace.depth_m[trace.stop_tick] < -10e-3
 
 
 @pytest.mark.requirement("SRS-PY-003")
@@ -72,7 +88,7 @@ def test_viewer_document_is_complete_and_finite(traces, name):
 
     assert loaded["format"] == viewer_export.FORMAT_VERSION
     assert loaded["name"] == name
-    ticks = trace.spec.ticks
+    ticks = len(trace.tick)
     for series in loaded["series"].values():
         assert len(series) == ticks
     frames = loaded["frames"]["chain_m"]
@@ -80,6 +96,7 @@ def test_viewer_document_is_complete_and_finite(traces, name):
     assert all(len(chain) == stapes.JOINT_COUNT + 1 for chain in frames)
     assert loaded["events"]["stop_tick"] == trace.stop_tick
     assert loaded["events"]["fault_start_tick"] == trace.fault_start_tick
+    assert loaded["events"]["approach_end_tick"] == trace.approach_end_tick
     assert loaded["tunnel"]["length_mm"] == pytest.approx(10.0)
 
     # The view across the tunnel is the same distance the core measured.

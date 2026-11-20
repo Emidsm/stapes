@@ -13,7 +13,7 @@ from stapes_core import chain_positions
 from .run import Trace, run
 from .scenarios import SCENARIOS
 
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 # One arm pose every 10 ms is smooth to the eye. The error series keep every control period,
 # because a stop is decided within a few of them.
 FRAME_EVERY_TICKS = 10
@@ -56,6 +56,7 @@ def viewer_document(trace: Trace) -> dict:
             "entry_m": tunnel.entry.tolist(),
             "target_m": tunnel.target.tolist(),
             "length_mm": tunnel.length_m * 1e3,
+            "entry_guard_mm": limits.entry_guard_m * 1e3,
         },
         "limits": {
             "design_target_um": 200.0,
@@ -66,10 +67,12 @@ def viewer_document(trace: Trace) -> dict:
             "stop_tick": trace.stop_tick,
             "stop_cause": trace.cause_name if trace.stop_tick is not None else None,
             "detection_ms": trace.detection_ticks,
+            # Before this tick the arm is on its way from rest: the error views wait for it.
+            "approach_end_tick": trace.approach_end_tick,
         },
         "summary": {
             "max_radial_um": round(trace.max_radial_m * 1e6, 1),
-            "max_axis_offset_um": round(float(trace.axis_offset_m.max()) * 1e6, 1),
+            "max_axis_offset_um": round(trace.max_axis_offset_m * 1e6, 1),
             "final_depth_mm": round(float(trace.depth_m[-1]) * 1e3, 3),
         },
         # One value per control period.

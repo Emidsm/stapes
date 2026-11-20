@@ -30,9 +30,13 @@
         <canvas id="arm-view"></canvas>
         <p class="stage-note">
           Arm at true scale. The tunnel is 10 mm long, so its error is shown magnified on the right.
-          Drag to orbit, scroll to zoom.
+          Drag to orbit, scroll to zoom. Follow tip keeps the camera close to the drill.
         </p>
         <div id="banner" class="banner" role="status" hidden></div>
+        <div class="stage-tools">
+          <button id="follow" type="button" class="secondary" aria-pressed="false">Follow tip</button>
+          <button id="sound" type="button" class="secondary" aria-pressed="false">Sound off</button>
+        </div>
       </section>
 
       <aside class="side">
@@ -46,7 +50,7 @@
           <canvas id="across-view" width="560" height="560"></canvas>
           <p class="caption">
             Where the true tip is, in the plane across the tunnel. Dotted ring: 0.2 mm design
-            target. Solid ring: the monitor's corridor.
+            target. Solid ring: the monitor's corridor, in force from 2 mm before the entry.
           </p>
         </section>
 
@@ -70,12 +74,15 @@
               <option value="0.25">0.25×</option>
               <option value="1" selected>1×</option>
               <option value="2">2×</option>
+              <option value="4">4×</option>
             </select>
           </label>
         </div>
         <p class="caption">
-          Distance of the true tip from the planned line. Red dashed line: a fault is injected. Red
-          solid line: the safety monitor stops the robot. Space plays and pauses; the arrow keys step.
+          Distance of the true tip from the planned line, from 2 mm before the entry. Shaded: the arm
+          approaching from rest. Red dashed line: a fault is injected. Red solid line: the safety
+          monitor stops the robot, and with sound on, the only alarm. Space plays and pauses; the
+          arrow keys step.
         </p>
       </section>
     </main>

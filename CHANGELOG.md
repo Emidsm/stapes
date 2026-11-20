@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (2026-11-17)
+## 1.0.0 (2026-11-19)
 
 The first complete version: a simulated robot, its control software, an independent safety
 monitor, fault injection, and the tooling that turns test results into evidence.
@@ -22,8 +22,11 @@ monitor, fault injection, and the tooling that turns test results into evidence.
 - Joint control: PID with anti-windup, gravity compensation and gearbox compensation.
 - The keyhole task: a straight tunnel, a feed profile, and one constraint shared with a remote
   centre of motion.
+- An approach from a rest pose: a joint-space move with a quintic time scaling, ending on the
+  line 5 mm before the entry.
 - A safety monitor with its own sensors and its own stop: four immediate checks, five debounced
-  checks, a latched stop and a guarded reset.
+  checks, a latched stop and a guarded reset. Its corridor starts at an entry guard, judged from
+  the tracked tip alone.
 - Fault injection: frozen motor encoder, frozen link encoder, frozen tracker, stuck actuator and
   communication delay.
 
@@ -33,11 +36,12 @@ monitor, fault injection, and the tooling that turns test results into evidence.
   results, and a hazard list whose controls are checked by the same tool.
 - Injected bugs, one line at a time, that the tests must catch.
 - A trace recorder, Python bindings and named scenarios.
-- A browser viewer that replays recorded runs, and an operation manual built from the test
-  results.
+- A browser viewer that replays recorded runs, with a camera that follows the tool and optional
+  sound, and an operation manual built from the test results.
 
 ### Known limits
 
 - Results are bit-exact for a given compiler and maths library only.
 - The 0.2 mm accuracy holds for a drilling thrust up to 2 N.
 - The simulated tracker has no latency, and the single force sensor has no second channel.
+- Collisions between the arm and its surroundings during the approach are not modelled.

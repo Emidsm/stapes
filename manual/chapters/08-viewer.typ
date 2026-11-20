@@ -26,15 +26,18 @@ from that commit.
 
 *The arm,* at true scale. Drag to orbit and scroll to zoom. The pale block is an illustrative
 piece of bone around the planned tunnel; only the tunnel's position and direction come from the
-plan.
+plan. *Follow tip* moves the camera close to the tool, beside the tunnel, and keeps it there as
+the tool moves, so the 10 mm feed can be seen.
 
 *Down the drill axis.* The arm is 0.7 m long and the errors that matter are 0.1 mm, a ratio of
 7000, so no single picture can show both. This view looks along the tunnel and shows where the
 true tip is in the plane across it. The dotted ring is the 0.2 mm design target and the solid
 ring is the monitor's 0.3 mm corridor.
 
-*Error over time.* The distance of the true tip from the planned line through the run. The
-vertical line is the moment being shown. When a run leaves the scale by orders of magnitude, as
+*Error over time.* The distance of the true tip from the planned line through the run, from
+2 mm before the entry, where the monitor's corridor starts. In a run from rest the approach is
+shaded and has no line: the tip is centimetres off the line then, by design. The vertical line is
+the moment being shown. When a run leaves the scale by orders of magnitude, as
 the unmonitored one does, the axis becomes logarithmic.
 
 == What red means
@@ -42,7 +45,7 @@ the unmonitored one does, the axis becomes logarithmic.
 #stop-note[
   Red means a safety stop or an injected fault, and nothing else. A dashed red line marks the
   tick a fault begins. A solid red line marks the tick the monitor stops the robot, and from
-  then on the tool and the tip marker are red.
+  then on the tool and the tip marker are red. With sound on, the stop is also the only alarm.
 ]
 
 == Controls
@@ -52,7 +55,9 @@ the unmonitored one does, the axis becomes logarithmic.
   [Control], [Effect],
   [Scenario], [Loads another recorded run. The address changes too, so a link can point at one scenario.],
   [Play, or Space], [Plays and pauses.],
-  [Speed], [Playback speed. A stop is decided within a few milliseconds, so 0.1× is useful.],
+  [Speed], [Playback speed. A stop is decided within a few milliseconds, so 0.1× is useful; 4× suits the 15 s approach.],
+  [Follow tip], [Moves the camera close to the tool and keeps it there. Pressed again, it returns to the wide view.],
+  [Sound], [Off until pressed. A motor hum that follows how fast the arm moves, a drill whine while the tip advances through bone, and an alarm at the safety stop. It reads only the recording.],
   [Slider, or the arrow keys], [Moves through the run. The arrow keys step by 10 ms.],
 )
 

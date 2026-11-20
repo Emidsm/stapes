@@ -21,7 +21,7 @@ def _run(args) -> int:
     print(f"scenario        {trace.spec.name} (seed {trace.seed})")
     print(f"core            {stapes.__version__}, {stapes.compiler}")
     print(f"max tip error   {trace.max_radial_m * 1e6:.1f} um from the planned line")
-    print(f"max axis offset {trace.axis_offset_m.max() * 1e6:.1f} um at the entry")
+    print(f"max axis offset {trace.max_axis_offset_m * 1e6:.1f} um at the entry")
     print(f"final depth     {trace.depth_m[-1] * 1e3:.3f} mm")
     if trace.stop_tick is None:
         print("monitor         no stop")

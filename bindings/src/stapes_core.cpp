@@ -32,6 +32,7 @@ using stapes::kinematics::JointVector;
 using stapes::kinematics::kJointCount;
 using stapes::safety::SafetyConfig;
 using stapes::safety::StopCause;
+using stapes::sim::Approach;
 using stapes::sim::KeyholeScenario;
 using stapes::sim::KeyholeSimulation;
 using stapes::sim::TraceRecorder;
@@ -128,11 +129,19 @@ void bind_scenario(py::module_& m) {
                              [](const SafetyConfig& c) { return c.corridor.radius_m; })
       .def_property_readonly("overshoot_margin_m",
                              [](const SafetyConfig& c) { return c.corridor.overshoot_margin_m; })
+      .def_property_readonly("entry_guard_m",
+                             [](const SafetyConfig& c) { return c.corridor.entry_guard_m; })
       .def_readonly("period_s", &SafetyConfig::period_s)
       .def_readonly("max_tool_force_n", &SafetyConfig::max_tool_force_n)
       .def_readonly("max_tracker_disagreement_m", &SafetyConfig::max_tracker_disagreement_m)
       .def_readonly("max_sample_age_ticks", &SafetyConfig::max_sample_age_ticks)
       .def_readonly("debounce_checks", &SafetyConfig::debounce_checks);
+
+  py::class_<Approach>(m, "Approach")
+      .def_readonly("rest_q", &Approach::rest_q)
+      .def_readonly("move_s", &Approach::move_s)
+      .def_readonly("settle_s", &Approach::settle_s)
+      .def_readonly("standoff_m", &Approach::standoff_m);
 
   py::class_<KeyholeScenario>(m, "KeyholeScenario")
       .def_static("reference", &KeyholeScenario::reference, py::arg("seed"))
@@ -141,10 +150,12 @@ void bind_scenario(py::module_& m) {
       .def_readwrite("feed_acceleration_m_s2", &KeyholeScenario::feed_acceleration_m_s2)
       .def_readonly("trajectory", &KeyholeScenario::trajectory)
       .def_readonly("safety", &KeyholeScenario::safety)
+      .def_readonly("approach", &KeyholeScenario::approach)
       .def_property_readonly("arm", [](const KeyholeScenario& s) { return s.arm.model.arm(); })
       .def_property_readonly("seed", [](const KeyholeScenario& s) { return s.arm.seed; });
 
   m.def("without_monitor_limits", &stapes::sim::without_monitor_limits, py::arg("scenario"));
+  m.def("with_approach", &stapes::sim::with_approach, py::arg("scenario"));
 }
 
 void bind_simulation(py::module_& m) {
@@ -158,6 +169,8 @@ void bind_simulation(py::module_& m) {
                              [](const KeyholeSimulation& sim) { return sim.monitor().cause(); })
       .def_property_readonly("planned_depth_m", &KeyholeSimulation::planned_depth_m)
       .def_property_readonly("feed_duration_s", &KeyholeSimulation::feed_duration_s)
+      .def_property_readonly("feed_start_s", &KeyholeSimulation::feed_start_s)
+      .def_property_readonly("approaching", &KeyholeSimulation::approaching)
       .def_property_readonly("fault_active", &KeyholeSimulation::fault_active)
       .def_property_readonly(
           "brakes_engaged", [](const KeyholeSimulation& sim) { return sim.arm().brakes_engaged(); })
@@ -215,6 +228,10 @@ void bind_trace(py::module_& m) {
       .def("brakes_engaged",
            [](const TraceRecorder& r) {
              return column(r, [](const TraceSample& s) { return s.brakes_engaged; });
+           })
+      .def("approaching",
+           [](const TraceRecorder& r) {
+             return column(r, [](const TraceSample& s) { return s.approaching; });
            })
       .def("q",
            [](const TraceRecorder& r) {
