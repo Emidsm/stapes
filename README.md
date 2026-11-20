@@ -1,17 +1,33 @@
+<div align="center">
+
 # Stapes
 
-A deterministic simulation environment for a 6-DOF surgical robot arm, in C++20: a simulated
-robot, the software that controls it, and an independent safety monitor that stops it when
-something goes wrong.
+**A deterministic simulation environment for a 6-DOF surgical robot arm, in C++20.**
+
+A simulated robot, the software that controls it, and an independent safety monitor that stops it
+when something goes wrong.
 
 [![CI](https://github.com/Emidsm/stapes/actions/workflows/ci.yml/badge.svg)](https://github.com/Emidsm/stapes/actions/workflows/ci.yml)
+[![Pages](https://github.com/Emidsm/stapes/actions/workflows/pages.yml/badge.svg)](https://emidsm.github.io/stapes/)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-0F766E?logo=cplusplus&logoColor=white)
+![GCC and Clang](https://img.shields.io/badge/GCC%20%C2%B7%20Clang-warnings%20as%20errors-0F766E)
+![ASan and UBSan](https://img.shields.io/badge/ASan%20%C2%B7%20UBSan-clean-0F766E)
+![License](https://img.shields.io/badge/license-all%20rights%20reserved-0B1F2A)
+
+**[Open the viewer](https://emidsm.github.io/stapes/)** ·
+**[Read the manual (PDF)](https://emidsm.github.io/stapes/stapes-manual.pdf)** ·
+[Requirements](docs/srs.md) ·
+[Architecture](docs/architecture.md) ·
+[Risk analysis](docs/risk-analysis.md) ·
+[Decisions](docs/adr/)
 
 ![A motor encoder freezes, and the safety monitor stops the robot 30 ms later](docs/media/viewer.gif)
 
-*A motor encoder freezes while the arm drills (dashed red line). The controller is now blind on
-that joint. The monitor compares it with a second encoder and stops the robot (solid red line).
-Slowed about six times. [Open the viewer](https://emidsm.github.io/stapes/) to replay this and
-ten other recorded runs, including one that starts from rest and drills, or read the [manual](https://emidsm.github.io/stapes/stapes-manual.pdf).*
+<sub>A motor encoder freezes while the arm drills (dashed red line). The controller is now blind
+on that joint. The monitor compares it with a second encoder and stops the robot (solid red line).
+Slowed about six times.</sub>
+
+</div>
 
 The arm drills a straight, narrow tunnel along a planned line, a task modelled on robotic
 cochlear implantation, where a few tenths of a millimetre matter. Named after the stapes, the
@@ -19,6 +35,31 @@ smallest bone in the human body, which sits at the entrance of the inner ear.
 
 The anatomy, the loads and the arm's geometry are illustrative. This is an engineering project,
 not a medical device, and no physical robot is connected.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/approach.gif" alt="The arm moves from rest to the planned line and drills"></td>
+    <td width="50%"><img src="docs/media/drilling.gif" alt="The camera follows the drill through the 10 mm tunnel"></td>
+  </tr>
+  <tr>
+    <td><sub><b>From rest.</b> The arm starts 18 cm from the entry, moves to the planned line and
+    drills. About twice real time.</sub></td>
+    <td><sub><b>Through the tunnel.</b> The camera follows the tool for the 10 mm feed. The
+    target on the right shows the tip, magnified, inside the 0.2 mm ring. About real time.</sub></td>
+  </tr>
+</table>
+
+## Contents
+
+- [What it shows](#what-it-shows)
+- [Architecture](#architecture)
+- [Evidence](#evidence)
+- [Built with](#built-with)
+- [Operation manual](#operation-manual)
+- [Build and test](#build-and-test)
+- [Scenarios, plots and the viewer](#scenarios-plots-and-the-viewer)
+- [Documents](#documents)
+- [Limits of what is claimed](#limits-of-what-is-claimed)
 
 ## What it shows
 
@@ -38,6 +79,44 @@ not a medical device, and no physical robot is connected.
 - **Determinism.** The same seed gives a bit-identical run. A hash of the whole state is compared
   between runs, between processes, between GCC and Clang, and between C++ and Python.
 - **Real-time discipline.** No heap allocation in a tick, proven by a test that counts them.
+
+## Architecture
+
+Everything left of the boundary is software that could run on a real robot. Everything right of
+it is the simulation. The boundary is two small abstract classes, and each module is its own CMake
+target, so a dependency in the wrong direction is a build error.
+
+```mermaid
+flowchart LR
+  subgraph software["Software: could drive a real robot"]
+    direction TB
+    task["task<br/>keyhole plan"] --> control["control<br/>PID, gravity and gearbox compensation"]
+    safety["safety<br/>independent monitor"]
+  end
+
+  subgraph boundary["hardware: the boundary"]
+    direction TB
+    robot(["RobotInterface"])
+    safe(["SafetyInterface"])
+  end
+
+  subgraph simulated["Simulation"]
+    plant["plant<br/>dynamics, motors, gearboxes,<br/>sensors, brakes"]
+  end
+
+  control -- torques --> robot
+  robot -- motor encoders --> control
+  safe -- link encoders, tracker --> safety
+  safety -- brakes --> safe
+  robot --- plant
+  safe --- plant
+  faults{{"faults<br/>sits on the boundary,<br/>implements both"}} -.-> boundary
+```
+
+`plant`, `control`, `safety` and `faults` depend on `hardware` and never on each other: the
+controller cannot read the simulator's true state, the monitor cannot read the controller's, and
+faults need no hooks in either. [`docs/architecture.md`](docs/architecture.md) walks through one
+1 ms control period, in order.
 
 ## Evidence
 
@@ -64,6 +143,14 @@ Measured with compiler gnu 16.2.1, build type release. Results are bit-exact for
 
 <!-- evidence:end -->
 
+<p align="center">
+  <img src="docs/media/containment.svg" alt="Tip error with and without the monitor after a motor encoder freezes" width="760">
+</p>
+
+<p align="center"><sub>The same frozen encoder, with the monitor (teal) and without it (grey, log
+scale). Without the monitor the arm runs away from the line; with it, the tip stays under the
+harm limit. Plotted by <code>python -m stapes plots</code> from recorded runs.</sub></p>
+
 How these are checked:
 
 | Check | What it guards against |
@@ -79,6 +166,53 @@ How these are checked:
 Injecting bugs into the safety monitor found two that its own specification tests missed, in
 code with full line coverage. [ADR 0007](docs/adr/0007-independent-safety-monitor.md) records
 them.
+
+## Built with
+
+<p>
+  <img src="https://img.shields.io/badge/C%2B%2B20-00599C?logo=cplusplus&logoColor=white" alt="C++20">
+  <img src="https://img.shields.io/badge/CMake%20%2B%20Ninja-064F8C?logo=cmake&logoColor=white" alt="CMake and Ninja">
+  <img src="https://img.shields.io/badge/Eigen%205.0-0B1F2A" alt="Eigen">
+  <img src="https://img.shields.io/badge/GoogleTest%201.17-4285F4?logo=google&logoColor=white" alt="GoogleTest">
+  <img src="https://img.shields.io/badge/Google%20Benchmark%201.9-4285F4?logo=google&logoColor=white" alt="Google Benchmark">
+  <img src="https://img.shields.io/badge/pybind11%203.0-0F766E" alt="pybind11">
+  <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white" alt="NumPy">
+  <img src="https://img.shields.io/badge/Matplotlib-11557C" alt="Matplotlib">
+  <img src="https://img.shields.io/badge/pytest-0A9EDC?logo=pytest&logoColor=white" alt="pytest">
+  <img src="https://img.shields.io/badge/three.js%20r180-000000?logo=threedotjs&logoColor=white" alt="three.js">
+  <img src="https://img.shields.io/badge/Typst-239DAD?logo=typst&logoColor=white" alt="Typst">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?logo=githubactions&logoColor=white" alt="GitHub Actions">
+</p>
+
+| Layer | Choice | Why |
+|---|---|---|
+| Core | C++20, built with GCC and Clang | Where the behaviour lives, and what is evaluated |
+| Build | CMake presets, Ninja, FetchContent with pinned hashes | Reproducible, no system packages needed |
+| Linear algebra | Eigen | Standard in robotics, header-only |
+| Tests | GoogleTest, seeded property tests | Failures that reproduce from a seed |
+| Benchmarks | Google Benchmark | The cost of a tick, as evidence |
+| Scenarios and analysis | Python through pybind11, NumPy, Matplotlib, pytest | A thin layer; the core never depends on it |
+| Viewer | three.js, vendored, on GitHub Pages | A link a reviewer can open; it replays and computes nothing |
+| Manual | Typst, with vendored fonts and generated figures | The same PDF on every machine, with no number typed by hand |
+| CI | GitHub Actions: sanitizers, clang-tidy, clang-format, coverage | Every claim checked on every push |
+
+## Operation manual
+
+<p align="center">
+  <a href="https://emidsm.github.io/stapes/stapes-manual.pdf">
+    <img src="docs/media/manual.png" alt="Pages of the operation manual" width="900">
+  </a>
+</p>
+
+How Stapes works and how to use it: the simulated robot, planning and control, the safety monitor,
+fault injection, the scenarios, the viewer, and how each claim is checked. Every measured value
+and figure in it is generated from the test results when it is built. CI builds it on every push
+and publishes it with the viewer. Source in [`manual/`](manual/):
+
+```sh
+python tools/build_manual.py         # needs Typst and the Python layer
+```
 
 ## Build and test
 
@@ -126,11 +260,14 @@ cmake --workflow --preset python     # the core, the bindings, and the tests of 
 export PYTHONPATH=build/python/python:python
 python -m stapes list
 python -m stapes run frozen-motor-encoder
+python -m stapes plots build/figures
 python -m stapes export viewer/traces
 python3 -m http.server 8765 -d viewer   # then open http://127.0.0.1:8765
 ```
 
-The viewer replays recorded runs and computes nothing, so it cannot disagree with the tests.
+The viewer replays recorded runs and computes nothing, so it cannot disagree with the tests. The
+GIFs above are captured from it, one recorded tick at a time, by
+[`tools/capture_viewer.mjs`](tools/capture_viewer.mjs).
 
 ## Documents
 
@@ -146,7 +283,8 @@ The viewer replays recorded runs and computes nothing, so it cannot disagree wit
 The requirements and the risk analysis are structured after IEC 62304 and ISO 14971. No
 compliance with either is claimed.
 
-## Layout
+<details>
+<summary><b>Repository layout</b></summary>
 
 | Path | Contents |
 |---|---|
@@ -165,9 +303,11 @@ compliance with either is claimed.
 | `viewer` | Browser replay of recorded runs |
 | `tests` | Unit, property, integration and determinism tests |
 | `benchmarks` | Timing of kinematics, dynamics and a complete tick |
-| `tools` | Traceability, test report, injected bugs, manual build |
+| `tools` | Traceability, test report, injected bugs, manual build, viewer capture |
 | `manual` | The operation manual, in Typst |
 | `docs` | Requirements, architecture, risk analysis, decision records |
+
+</details>
 
 ## Limits of what is claimed
 

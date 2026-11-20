@@ -19,11 +19,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
 
-const SCENARIO = "frozen-motor-encoder";
-const FIRST_TICK = 640;
-const LAST_TICK = 1240;
-const TICKS_PER_FRAME = 8;
-const FRAMES_PER_SECOND = 20; // 8 ms of simulation per 50 ms of GIF: slowed about 6 times.
+// Each capture is one GIF. `step` ticks of simulation pass per GIF frame, at 20 frames a second.
+const CAPTURES = [
+  // A motor encoder freezes while drilling: 8 ms per 50 ms frame, slowed about 6 times.
+  { name: "viewer", scenario: "frozen-motor-encoder", first: 640, last: 1240, step: 8, still: 1100 },
+  // The whole run from rest, in the wide view: about twice real time.
+  { name: "approach", scenario: "approach", first: 0, last: 18690, step: 90 },
+  // The last part of the same run, with the camera beside the tool: about real time.
+  { name: "drilling", scenario: "approach", first: 14800, last: 18690, step: 50, follow: true },
+];
+const FRAMES_PER_SECOND = 20;
 const VIEWPORT = { width: 1180, height: 1010 };
 
 const [baseUrl, outputDirectory] = process.argv.slice(2);
@@ -32,7 +37,6 @@ if (!baseUrl || !outputDirectory) {
   process.exit(2);
 }
 mkdirSync(outputDirectory, { recursive: true });
-const frames = mkdtempSync(join(tmpdir(), "stapes-frames-"));
 
 // Software rendering, so the capture does not depend on the machine's graphics driver.
 const browser = await chromium.launch({
@@ -43,8 +47,6 @@ page.on("pageerror", (error) => {
   console.error(`page error: ${error.message}`);
   process.exitCode = 1;
 });
-await page.goto(`${baseUrl}/index.html#${SCENARIO}`);
-await page.waitForFunction(() => document.getElementById("scrub").max !== "1");
 
 async function showTick(tick) {
   await page.evaluate((value) => {
@@ -58,26 +60,41 @@ async function showTick(tick) {
   );
 }
 
-let index = 0;
-for (let tick = FIRST_TICK; tick <= LAST_TICK; tick += TICKS_PER_FRAME) {
-  await showTick(tick);
-  await page.screenshot({ path: join(frames, `${String(index).padStart(4, "0")}.png`) });
-  index += 1;
-}
-await showTick(1100);
-await page.screenshot({ path: join(outputDirectory, "viewer.png") });
-await browser.close();
+async function capture({ name, scenario, first, last, step, still, follow }) {
+  const frames = mkdtempSync(join(tmpdir(), "stapes-frames-"));
+  await page.goto(`${baseUrl}/index.html#${scenario}`);
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById("scrub").max !== "1");
+  if (follow) {
+    await page.click("#follow");
+  }
+  let index = 0;
+  for (let tick = first; tick <= last; tick += step) {
+    await showTick(tick);
+    await page.screenshot({ path: join(frames, `${String(index).padStart(4, "0")}.png`) });
+    index += 1;
+  }
+  if (still !== undefined) {
+    await showTick(still);
+    await page.screenshot({ path: join(outputDirectory, `${name}.png`) });
+  }
 
-// One palette for the whole GIF, computed from its own frames, keeps the colours steady.
-execFileSync(
-  "ffmpeg",
-  [
-    "-y", "-loglevel", "error", "-framerate", String(FRAMES_PER_SECOND),
-    "-i", join(frames, "%04d.png"),
-    "-vf", "scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none",
-    join(outputDirectory, "viewer.gif"),
-  ],
-  { stdio: "inherit" },
-);
-rmSync(frames, { recursive: true });
-console.log(`${index} frames written to ${join(outputDirectory, "viewer.gif")}`);
+  // One palette for the whole GIF, computed from its own frames, keeps the colours steady.
+  execFileSync(
+    "ffmpeg",
+    [
+      "-y", "-loglevel", "error", "-framerate", String(FRAMES_PER_SECOND),
+      "-i", join(frames, "%04d.png"),
+      "-vf", "scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none",
+      join(outputDirectory, `${name}.gif`),
+    ],
+    { stdio: "inherit" },
+  );
+  rmSync(frames, { recursive: true });
+  console.log(`${index} frames written to ${join(outputDirectory, `${name}.gif`)}`);
+}
+
+for (const settings of CAPTURES) {
+  await capture(settings);
+}
+await browser.close();

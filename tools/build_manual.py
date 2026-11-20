@@ -43,6 +43,15 @@ def commit() -> str:
     return f"{short} with uncommitted changes" if dirty else short
 
 
+def commit_date() -> str:
+    """The date of the commit the manual is built from, so one commit always gives one PDF."""
+    try:
+        return subprocess.run(["git", "log", "-1", "--format=%cs"], cwd=ROOT,
+                              capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return datetime.date.today().isoformat()
+
+
 def describe(environment: list[str]) -> str:
     """The build as a phrase: 'GNU 16.2.1 in a Release build'."""
     values = dict(line.removeprefix("- ").split(": ", 1) for line in environment)
@@ -93,7 +102,7 @@ def main() -> int:
     subprocess.run(
         ["typst", "compile", "--root", str(MANUAL), "--font-path", str(MANUAL / "fonts"),
          "--ignore-system-fonts", "--input", f"commit={commit()}",
-         "--input", f"date={datetime.date.today().isoformat()}",
+         "--input", f"date={commit_date()}",
          str(MANUAL / "manual.typ"), str(args.output)],
         check=True)
     print(args.output)
